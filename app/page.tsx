@@ -1,9 +1,5 @@
 const page = () => {
-  return (
-    <div>
-      <h1 className="text-2xl underline">ChatlyBook</h1>
-    </div>
-  );
+  return <div></div>;
 };
 
 export default page;
