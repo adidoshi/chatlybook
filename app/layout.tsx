@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
+import { ui } from "@clerk/ui";
 import { Mona_Sans, Poppins } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
@@ -33,8 +35,10 @@ export default function RootLayout({
       className={`${poppins.variable} ${monaSans.variable} relative font-sans antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <Navbar />
-        {children}
+        <ClerkProvider ui={ui}>
+          <Navbar />
+          {children}
+        </ClerkProvider>
       </body>
     </html>
   );
