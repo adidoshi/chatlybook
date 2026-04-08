@@ -8,13 +8,20 @@ export function cn(...inputs: ClassValue[]) {
 
 // Auto generate slug
 export function generateSlug(text: string): string {
-  return text
+  const slug = text
     .replace(/\.[^/.]+$/, "") // Remove file extension (.pdf, .txt, etc.)
     .toLowerCase() // Convert to lowercase
     .trim() // Remove whitespace from both ends
     .replace(/[^\w\s-]/g, "") // Remove special characters (keep letters, numbers, spaces, hyphens)
     .replace(/[\s_]+/g, "-") // Replace spaces and underscores with hyphens
     .replace(/^-+|-+$/g, ""); // Remove leading/trailing hyphens
+  if (!slug) {
+    throw new Error(
+      "Cannot generate slug: title must contain alphanumeric characters",
+    );
+  }
+
+  return slug;
 }
 
 // Serialize Mongoose documents to plain JSON objects (strips ObjectId, Date, etc.)
@@ -74,7 +81,6 @@ export async function parsePDFFile(file: File) {
 
     // Read file as array buffer
     const arrayBuffer = await file.arrayBuffer();
-    console.log(arrayBuffer);
 
     // Load PDF document
     const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });

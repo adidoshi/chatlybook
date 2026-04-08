@@ -8,7 +8,6 @@ const BookSchema = new Schema<IBook>(
     slug: {
       type: String,
       required: true,
-      unique: true,
       lowercase: true,
       trim: true,
     },
@@ -23,6 +22,8 @@ const BookSchema = new Schema<IBook>(
   },
   { timestamps: true },
 );
+
+BookSchema.index({ clerkId: 1, slug: 1 }, { unique: true });
 
 const Book = models.Book || model<IBook>("Book", BookSchema);
 

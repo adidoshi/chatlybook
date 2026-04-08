@@ -5,11 +5,19 @@ import { CreateBook, TextSegment } from "@/types";
 import { generateSlug, serializeData } from "../utils";
 import Book from "@/database/models/book.model";
 import BookSegment from "@/database/models/book-segment.model";
+import { auth } from "@clerk/nextjs/server";
 
 export const getAllBooks = async () => {
   try {
+    const { userId } = await auth();
+    if (!userId) {
+      return { success: false, error: "Unauthorized" };
+    }
+
     await connectToDatabase();
-    const books = await Book.find().sort({ createdAt: -1 }).lean();
+    const books = await Book.find({ clerkId: userId })
+      .sort({ createdAt: -1 })
+      .lean();
     return {
       success: true,
       data: serializeData(books),
@@ -25,11 +33,16 @@ export const getAllBooks = async () => {
 
 export const checkBookExists = async (title: string) => {
   try {
+    const { userId } = await auth();
+    if (!userId) {
+      return { exists: false, error: "Unauthorized" };
+    }
+
     await connectToDatabase();
 
     const slug = generateSlug(title);
 
-    const existingBook = await Book.findOne({ slug }).lean();
+    const existingBook = await Book.findOne({ clerkId: userId, slug }).lean();
 
     if (existingBook) {
       return {
@@ -51,12 +64,17 @@ export const checkBookExists = async (title: string) => {
 };
 
 export const createBook = async (data: CreateBook) => {
+  const { userId } = await auth();
+  if (!userId) {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  const slug = generateSlug(data.title);
+
   try {
     await connectToDatabase();
 
-    const slug = generateSlug(data.title);
-
-    const existingBook = await Book.findOne({ slug }).lean();
+    const existingBook = await Book.findOne({ slug, clerkId: userId }).lean();
     if (existingBook) {
       return {
         success: true,
@@ -66,13 +84,39 @@ export const createBook = async (data: CreateBook) => {
     }
 
     // Todo: Check subscription limits here before creating the book
-    const book = await Book.create({ ...data, slug, totalSegments: 0 });
+    const book = await Book.create({
+      ...data,
+      clerkId: userId,
+      slug,
+      totalSegments: 0,
+    });
 
     return {
       success: true,
       data: serializeData(book),
     };
   } catch (e) {
+    // Handle race conditions on unique owner+slug index as already-existing book.
+    if (
+      typeof e === "object" &&
+      e !== null &&
+      "code" in e &&
+      (e as { code?: number }).code === 11000
+    ) {
+      const existingBook = await Book.findOne({
+        slug,
+        clerkId: userId,
+      }).lean();
+
+      if (existingBook) {
+        return {
+          success: true,
+          data: serializeData(existingBook),
+          alreadyExists: true,
+        };
+      }
+    }
+
     console.error("Error creating book:", e);
     return {
       success: false,
@@ -83,42 +127,74 @@ export const createBook = async (data: CreateBook) => {
 
 export const saveBookSegments = async (
   bookId: string,
-  clerkId: string,
   segments: TextSegment[],
 ) => {
   try {
+    const { userId } = await auth();
+    if (!userId) {
+      return { success: false, error: "Unauthorized" };
+    }
+
     await connectToDatabase();
+
+    const existingBook = await Book.findOne({ _id: bookId, clerkId: userId })
+      .select("_id")
+      .lean();
+
+    if (!existingBook) {
+      return {
+        success: false,
+        error: "Book not found or access denied",
+      };
+    }
 
     console.log("Saving book segments...");
 
-    const segmentsToInsert = segments.map(
+    const segmentUpserts = segments.map(
       ({ text, segmentIndex, pageNumber, wordCount }) => ({
-        clerkId,
-        bookId,
-        content: text,
-        segmentIndex,
-        pageNumber,
-        wordCount,
+        updateOne: {
+          filter: { bookId, segmentIndex },
+          update: {
+            $set: {
+              clerkId: userId,
+              content: text,
+              pageNumber,
+              wordCount,
+            },
+            $setOnInsert: {
+              bookId,
+              segmentIndex,
+            },
+          },
+          upsert: true,
+        },
       }),
     );
 
-    await BookSegment.insertMany(segmentsToInsert);
+    const bulkWriteResult = await BookSegment.bulkWrite(segmentUpserts, {
+      ordered: false,
+    });
 
-    await Book.findByIdAndUpdate(bookId, { totalSegments: segments.length });
+    await Book.findOneAndUpdate(
+      { _id: bookId, clerkId: userId },
+      { totalSegments: segments.length },
+    );
 
     console.log("Book segments saved successfully.");
 
     return {
       success: true,
-      data: { segmentsCreated: segments.length },
+      data: {
+        segmentsCreated: bulkWriteResult.upsertedCount,
+        segmentsUpdated: bulkWriteResult.modifiedCount,
+        totalProcessed: segments.length,
+      },
     };
   } catch (error) {
     console.error("Error saving book segments:", error);
-    await BookSegment.deleteMany({ bookId });
-    await Book.findByIdAndDelete(bookId);
-    console.log(
-      "Deleted book segments and book due to error during segment saving",
-    );
+
+    // Avoid destructive cleanup for ordinary failures; keep existing data intact.
+    // Rollbacks should only happen through an explicit, higher-level recovery path.
     return {
       success: false,
       error,

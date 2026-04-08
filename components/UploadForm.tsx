@@ -137,15 +137,11 @@ const UploadForm = () => {
           "A book with this title already exists. Redirecting to the existing book.",
         );
         form.reset();
-        router.push(`/books/${existsCheck.book.slug}`);
+        router.push(`/books/${book.data.slug}`);
         return;
       }
 
-      const segments = await saveBookSegments(
-        book.data._id,
-        userId,
-        parsedPDF.content,
-      );
+      const segments = await saveBookSegments(book.data._id, parsedPDF.content);
 
       if (!segments.success) {
         toast.error(
