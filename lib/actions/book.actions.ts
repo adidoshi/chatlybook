@@ -54,7 +54,8 @@ export const getBookBySlug = async (slug: string) => {
     console.error("Error fetching book by slug:", error);
     return {
       success: false,
-      error,
+      error:
+        error instanceof Error ? error.message : "Failed to fetch book by slug",
     };
   }
 };
@@ -86,7 +87,7 @@ export const checkBookExists = async (title: string) => {
     console.error("Error checking book exists", e);
     return {
       exists: false,
-      error: e,
+      error: e instanceof Error ? e.message : "Failed to check if book exists",
     };
   }
 };
@@ -148,7 +149,7 @@ export const createBook = async (data: CreateBook) => {
     console.error("Error creating book:", e);
     return {
       success: false,
-      error: e,
+      error: e instanceof Error ? e.message : "Failed to create book",
     };
   }
 };
@@ -225,7 +226,8 @@ export const saveBookSegments = async (
     // Rollbacks should only happen through an explicit, higher-level recovery path.
     return {
       success: false,
-      error,
+      error:
+        error instanceof Error ? error.message : "Failed to save book segments",
     };
   }
 };
