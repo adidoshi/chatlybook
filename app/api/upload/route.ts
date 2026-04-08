@@ -4,14 +4,13 @@ import { auth } from "@clerk/nextjs/server";
 import { MAX_FILE_SIZE } from "@/lib/constants";
 
 export async function POST(request: Request): Promise<Response> {
-  const body = (await request.json()) as HandleUploadBody;
   const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
 
   try {
     if (!blobToken) {
       throw new Error("Missing BLOB_READ_WRITE_TOKEN environment variable");
     }
-
+    const body = (await request.json()) as HandleUploadBody;
     const jsonResponse = await handleUpload({
       token: blobToken,
       body,

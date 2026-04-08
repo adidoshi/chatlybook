@@ -31,6 +31,34 @@ export const getAllBooks = async () => {
   }
 };
 
+export const getBookBySlug = async (slug: string) => {
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    await connectToDatabase();
+
+    const book = await Book.findOne({ clerkId: userId, slug }).lean();
+
+    if (!book) {
+      return { success: false, error: "Book not found" };
+    }
+
+    return {
+      success: true,
+      data: serializeData(book),
+    };
+  } catch (error) {
+    console.error("Error fetching book by slug:", error);
+    return {
+      success: false,
+      error,
+    };
+  }
+};
+
 export const checkBookExists = async (title: string) => {
   try {
     const { userId } = await auth();
