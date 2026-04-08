@@ -17,11 +17,27 @@ import LoadingOverlay from "./LoadingOverlay";
 import { UploadSchema } from "@/lib/zod";
 import { UploadFormInput, UploadFormValues } from "@/types";
 import FileUploader from "./FileUploader";
-import { ACCEPTED_IMAGE_TYPES, ACCEPTED_PDF_TYPES } from "@/lib/constants";
+import {
+  ACCEPTED_IMAGE_TYPES,
+  ACCEPTED_PDF_TYPES,
+  DEFAULT_VOICE,
+} from "@/lib/constants";
 import { Input } from "./ui/input";
 import VoiceSelector from "./VoiceSelector";
+import { useAuth } from "@clerk/react";
+import { toast } from "sonner";
+import {
+  checkBookExists,
+  createBook,
+  saveBookSegments,
+} from "@/lib/actions/book.actions";
+import { useRouter } from "next/navigation";
+import { parsePDFFile } from "@/lib/utils";
+import { upload } from "@vercel/blob/client";
 
 const UploadForm = () => {
+  const router = useRouter();
+  const { userId } = useAuth();
   const form = useForm<UploadFormInput, unknown, UploadFormValues>({
     resolver: zodResolver(UploadSchema),
     defaultValues: {
@@ -34,8 +50,118 @@ const UploadForm = () => {
   });
 
   const onSubmit = async (values: UploadFormValues) => {
+    if (!userId) {
+      return toast.error("You must be signed in to upload a book.");
+    }
+
+    // PostHog -> Track book upload attempt
+
+    try {
+      const existsCheck = await checkBookExists(values.title);
+      if (existsCheck.exists && existsCheck.book) {
+        toast.info(
+          "A book with this title already exists. Please choose a different title.",
+        );
+        form.reset();
+        router.push(`/books/${existsCheck.book.slug}`);
+        return;
+      }
+
+      const fileTitle = values.title.replace(/\s+/g, "-").toLowerCase();
+      const pdfFile = values.pdfFile;
+
+      if (!(pdfFile instanceof File)) {
+        toast.error("Please upload a valid PDF file.");
+        return;
+      }
+
+      const parsedPDF = await parsePDFFile(pdfFile);
+
+      if (parsedPDF.content.length === 0) {
+        toast.error(
+          "The uploaded PDF is empty. Please upload a valid PDF file.",
+        );
+        return;
+      }
+
+      const uploadedPdfBlob = await upload(fileTitle, pdfFile, {
+        access: "public",
+        handleUploadUrl: "/api/upload",
+        contentType: "application/pdf",
+      });
+
+      let coverUrl: string;
+
+      if (values.coverImage instanceof File) {
+        const coverFile = values.coverImage;
+        const uploadedCoverBlob = await upload(
+          `${fileTitle}_cover.png`,
+          coverFile,
+          {
+            access: "public",
+            handleUploadUrl: "/api/upload",
+            contentType: coverFile.type,
+          },
+        );
+        coverUrl = uploadedCoverBlob.url;
+      } else {
+        const response = await fetch(parsedPDF.cover);
+        const coverBlob = await response.blob();
+        const uploadedCoverBlob = await upload(
+          `${fileTitle}_cover.png`,
+          coverBlob,
+          {
+            access: "public",
+            handleUploadUrl: "/api/upload",
+            contentType: "image/png",
+          },
+        );
+        coverUrl = uploadedCoverBlob.url;
+      }
+
+      const book = await createBook({
+        clerkId: userId,
+        title: values.title,
+        author: values.author,
+        persona: values.persona,
+        fileURL: uploadedPdfBlob.url,
+        fileBlobKey: uploadedPdfBlob.pathname,
+        coverURL: coverUrl,
+        fileSize: pdfFile.size,
+      });
+
+      if (!book.success) throw new Error("Book creation failed");
+
+      if (book.alreadyExists) {
+        toast.info(
+          "A book with this title already exists. Redirecting to the existing book.",
+        );
+        form.reset();
+        router.push(`/books/${book.data.slug}`);
+        return;
+      }
+
+      const segments = await saveBookSegments(book.data._id, parsedPDF.content);
+
+      if (!segments.success) {
+        toast.error(
+          "Book was created but saving segments failed. Please contact support.",
+        );
+        throw new Error("Saving book segments failed");
+      }
+
+      form.reset();
+      toast.success("Book uploaded successfully!");
+      router.push("/");
+    } catch (error) {
+      console.error("Error during book upload:", error);
+      toast.error(
+        "An error occurred while uploading the book. Please try again.",
+      );
+    }
+
     // Placeholder submit flow until backend upload/synthesis endpoints are wired.
-    await new Promise((resolve) => setTimeout(resolve, 1200));
+    // await new Promise((resolve) => setTimeout(resolve, 1200));
     console.log("Upload payload ready", values);
   };
 

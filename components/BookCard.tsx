@@ -10,7 +10,7 @@ const BookCard = ({ title, author, coverURL, slug }: BookCardProps) => {
           <figure className="book-card-figure">
             <div className="book-card-cover-wrapper">
               <Image
-                src={coverURL}
+                src={`${coverURL}`}
                 alt={title}
                 width={133}
                 height={200}

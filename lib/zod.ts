@@ -9,8 +9,16 @@ import {
 const allowedVoiceIds = ["dave", "daniel", "chris", "rachel", "sarah"] as const;
 
 export const UploadSchema = z.object({
-  title: z.string().trim().min(1, "Title is required."),
-  author: z.string().trim().min(1, "Author name is required."),
+  title: z
+    .string()
+    .trim()
+    .min(1, "Title is required.")
+    .max(100, "Title must be less than 100 characters."),
+  author: z
+    .string()
+    .trim()
+    .min(1, "Author name is required.")
+    .max(100, "Author name must be less than 100 characters."),
   persona: z
     .string()
     .refine(
