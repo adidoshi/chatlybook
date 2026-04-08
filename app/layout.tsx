@@ -4,6 +4,7 @@ import { ui } from "@clerk/ui";
 import { Mona_Sans, Poppins } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
+import { Toaster } from "@/components/ui/sonner";
 
 const poppins = Poppins({
   variable: "--font-poppins",
@@ -30,16 +31,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${poppins.variable} ${monaSans.variable} relative font-sans antialiased`}
-    >
-      <body className="min-h-full flex flex-col">
-        <ClerkProvider ui={ui}>
+    <ClerkProvider ui={ui}>
+      <html
+        lang="en"
+        className={`${poppins.variable} ${monaSans.variable} relative font-sans antialiased`}
+      >
+        <body className="min-h-full flex flex-col">
           <Navbar />
           {children}
-        </ClerkProvider>
-      </body>
-    </html>
+          <Toaster />
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

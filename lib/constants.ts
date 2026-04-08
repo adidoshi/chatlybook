@@ -130,3 +130,6 @@ export const voiceCategories = {
   male: ["dave", "daniel", "chris"],
   female: ["rachel", "sarah"],
 };
+
+// Default voice
+export const DEFAULT_VOICE = "rachel";

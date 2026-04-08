@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 const BookCard = ({ title, author, coverURL, slug }: BookCardProps) => {
+  console.log(coverURL);
   return (
     <div>
       <Link href={`/books/${slug}`}>
@@ -10,7 +11,7 @@ const BookCard = ({ title, author, coverURL, slug }: BookCardProps) => {
           <figure className="book-card-figure">
             <div className="book-card-cover-wrapper">
               <Image
-                src={coverURL}
+                src={`${coverURL}`}
                 alt={title}
                 width={133}
                 height={200}
