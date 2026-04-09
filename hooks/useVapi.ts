@@ -5,6 +5,8 @@ import {
   startVoiceSession,
 } from "@/lib/actions/session.actions";
 import Vapi from "@vapi-ai/web";
+import { getVoice } from "@/lib/utils";
+import { DEFAULT_VOICE, VOICE_SETTINGS } from "@/lib/constants";
 
 export type CallStatus =
   | "idle"
@@ -93,6 +95,8 @@ const useVapi = (book: IBook) => {
   const isStoppingRef = useRef<boolean>(false);
   const isStartingRef = useRef<boolean>(false);
 
+  const voice = book.persona || DEFAULT_VOICE;
+
   const isActive =
     status === "listening" ||
     status === "thinking" ||
@@ -157,6 +161,15 @@ const useVapi = (book: IBook) => {
           title: book.title,
           author: book.author,
           bookId: book._id,
+        },
+        voice: {
+          provider: "11labs" as const,
+          voiceId: getVoice(voice).id,
+          model: "eleven_turbo_v2_5" as const,
+          stability: VOICE_SETTINGS.stability,
+          similarityBoost: VOICE_SETTINGS.similarityBoost,
+          style: VOICE_SETTINGS.style,
+          useSpeakerBoost: VOICE_SETTINGS.useSpeakerBoost,
         },
       });
     } catch (error) {

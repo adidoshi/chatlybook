@@ -1,7 +1,8 @@
 import BookCard from "@/components/BookCard";
 import HeroSection from "@/components/HeroSection";
 import { getAllBooks } from "@/lib/actions/book.actions";
-import { sampleBooks } from "@/lib/constants";
+
+export const dynamic = "force-dynamic";
 
 export default async function Page() {
   const bookResults = await getAllBooks();

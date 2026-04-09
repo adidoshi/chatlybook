@@ -8,33 +8,27 @@ type SearchContext = {
   ownerId?: string;
 };
 
-function extractUserContext(
-  request: Request,
-  body: Record<string, unknown>,
-  args: Record<string, unknown>,
-): SearchContext {
-  const headers = request.headers;
-  const clerkIdFromHeaders =
-    headers.get("x-clerk-user-id") ??
-    headers.get("x-clerk-id") ??
-    headers.get("x-owner-id") ??
-    headers.get("x-user-id");
-
-  const fromBodyMeta =
-    body?.metadata && typeof body.metadata === "object"
-      ? (body.metadata as Record<string, unknown>)
-      : undefined;
+function extractUserContext(body: Record<string, unknown>): SearchContext {
+  // Only trust server-verified identity context; ignore caller-controlled headers/args/body.
+  const serverVerified =
+    body?.serverVerified && typeof body.serverVerified === "object"
+      ? (body.serverVerified as Record<string, unknown>)
+      : body?.metadata &&
+          typeof body.metadata === "object" &&
+          (body.metadata as Record<string, unknown>).serverVerified &&
+          typeof (body.metadata as Record<string, unknown>).serverVerified ===
+            "object"
+        ? ((body.metadata as Record<string, unknown>).serverVerified as Record<
+            string,
+            unknown
+          >)
+        : undefined;
 
   const clerkId =
-    (typeof args.clerkId === "string" && args.clerkId.trim()) ||
-    (typeof args.ownerId === "string" && args.ownerId.trim()) ||
-    (typeof body.clerkId === "string" && body.clerkId.trim()) ||
-    (typeof body.ownerId === "string" && body.ownerId.trim()) ||
-    (typeof fromBodyMeta?.clerkId === "string" &&
-      fromBodyMeta.clerkId.trim()) ||
-    (typeof fromBodyMeta?.ownerId === "string" &&
-      fromBodyMeta.ownerId.trim()) ||
-    (typeof clerkIdFromHeaders === "string" && clerkIdFromHeaders.trim()) ||
+    (typeof serverVerified?.clerkId === "string" &&
+      serverVerified.clerkId.trim()) ||
+    (typeof serverVerified?.ownerId === "string" &&
+      serverVerified.ownerId.trim()) ||
     undefined;
 
   return { clerkId, ownerId: clerkId };
@@ -103,8 +97,21 @@ async function processBookSearch(
     };
   }
 
+  if (!searchResult.success) {
+    const message =
+      "message" in searchResult && typeof searchResult.message === "string"
+        ? searchResult.message
+        : "Search failed for the book.";
+
+    return {
+      success: false,
+      error: searchResult.error || "SearchFailed",
+      result: message,
+    };
+  }
+
   // Return results
-  if (!searchResult.success || !searchResult.data?.length) {
+  if (!searchResult.data?.length) {
     return { result: "No information found about this topic in the book." };
   }
 
@@ -149,7 +156,7 @@ export async function POST(request: Request) {
     if (functionCall) {
       const { name, parameters } = functionCall;
       const parsed = parseArgs(parameters);
-      const userContext = extractUserContext(request, requestBody, parsed);
+      const userContext = extractUserContext(requestBody);
 
       if (name === "searchBook") {
         const result = await processBookSearch(
@@ -176,7 +183,7 @@ export async function POST(request: Request) {
       const { id, function: func } = toolCall;
       const name = func?.name;
       const args = parseArgs(func?.arguments);
-      const userContext = extractUserContext(request, requestBody, args);
+      const userContext = extractUserContext(requestBody);
 
       if (name === "searchBook") {
         const searchResult = await processBookSearch(
