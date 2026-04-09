@@ -1,8 +1,8 @@
 "use server";
-
+import mongoose from "mongoose";
 import { connectToDatabase } from "@/database/mongoose";
 import { CreateBook, TextSegment } from "@/types";
-import { generateSlug, serializeData } from "../utils";
+import { escapeRegex, generateSlug, serializeData } from "../utils";
 import Book from "@/database/models/book.model";
 import BookSegment from "@/database/models/book-segment.model";
 import { auth } from "@clerk/nextjs/server";
@@ -228,6 +228,100 @@ export const saveBookSegments = async (
       success: false,
       error:
         error instanceof Error ? error.message : "Failed to save book segments",
+    };
+  }
+};
+
+// Searches book segments using MongoDB text search with regex fallback
+export const searchBookSegments = async (
+  bookId: string,
+  query: string,
+  limit: number = 5,
+  options?: { clerkId?: string; ownerId?: string },
+) => {
+  try {
+    const safeLimit = Number.isFinite(limit)
+      ? Math.min(Math.max(Math.trunc(limit), 1), 20)
+      : 5;
+    const requestClerkId = options?.clerkId ?? options?.ownerId;
+
+    let resolvedClerkId = requestClerkId;
+    if (!resolvedClerkId) {
+      const { userId } = await auth();
+      resolvedClerkId = userId ?? undefined;
+    }
+
+    if (!resolvedClerkId) {
+      return { success: false, error: "AuthRequired", data: [] };
+    }
+    await connectToDatabase();
+
+    console.log("Searching book segments", {
+      bookId,
+      queryLength: query.length,
+    });
+
+    const bookObjectId = new mongoose.Types.ObjectId(bookId);
+
+    // Try MongoDB text search first (requires text index)
+    let segments: Record<string, unknown>[] = [];
+    try {
+      segments = await BookSegment.find({
+        clerkId: resolvedClerkId,
+        bookId: bookObjectId,
+        $text: { $search: query },
+      })
+        .select("_id bookId content segmentIndex pageNumber wordCount")
+        .sort({ score: { $meta: "textScore" } })
+        .limit(safeLimit)
+        .lean();
+    } catch (error) {
+      const message = error instanceof Error ? error.message.toLowerCase() : "";
+      const missingTextIndex =
+        message.includes("text index required") ||
+        message.includes("index not found");
+      if (!missingTextIndex) {
+        throw error;
+      }
+
+      // Text index may not exist — fall through to regex fallback
+      segments = [];
+    }
+
+    // Fallback: regex search matching ANY keyword
+    if (segments.length === 0) {
+      const keywords = query.split(/\s+/).filter((k) => k.length > 2);
+      const pattern = keywords.map(escapeRegex).join("|");
+      if (keywords.length === 0) {
+        return { success: true, data: [] };
+      }
+
+      segments = await BookSegment.find({
+        clerkId: resolvedClerkId,
+        bookId: bookObjectId,
+        content: { $regex: pattern, $options: "i" },
+      })
+        .select("_id bookId content segmentIndex pageNumber wordCount")
+        .sort({ segmentIndex: 1 })
+        .limit(safeLimit)
+        .lean();
+    }
+
+    console.log("Book segment search complete", {
+      bookId,
+      resultCount: segments.length,
+    });
+
+    return {
+      success: true,
+      data: serializeData(segments),
+    };
+  } catch (error) {
+    console.error("Error searching segments:", error);
+    return {
+      success: false,
+      error: (error as Error).message,
+      data: [],
     };
   }
 };

@@ -1,5 +1,6 @@
 import { Document, Types } from "mongoose";
 import { UploadSchema } from "./lib/zod";
+import { PLANS, PlanType } from "@/lib/subscription-constants";
 
 export interface BookCardProps {
   title: string;
@@ -90,4 +91,31 @@ export interface TextSegment {
   segmentIndex: number;
   pageNumber?: number;
   wordCount: number;
+}
+
+export interface Messages {
+  role: string;
+  content: string;
+}
+
+export interface SessionCheckResult {
+  allowed: boolean;
+  currentCount: number;
+  limit: number;
+  plan: PlanType;
+  maxDurationMinutes: number;
+  error?: string;
+}
+
+export interface StartSessionResult {
+  success: boolean;
+  sessionId?: string;
+  maxDurationMinutes?: number;
+  error?: string;
+  isBillingError?: boolean;
+}
+
+export interface EndSessionResult {
+  success: boolean;
+  error?: string;
 }

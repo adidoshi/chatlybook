@@ -1,0 +1,200 @@
+import { NextResponse } from "next/server";
+import { searchBookSegments } from "@/lib/actions/book.actions";
+import { connectToDatabase } from "@/database/mongoose";
+import Book from "@/database/models/book.model";
+
+type SearchContext = {
+  clerkId?: string;
+  ownerId?: string;
+};
+
+function extractUserContext(
+  request: Request,
+  body: Record<string, unknown>,
+  args: Record<string, unknown>,
+): SearchContext {
+  const headers = request.headers;
+  const clerkIdFromHeaders =
+    headers.get("x-clerk-user-id") ??
+    headers.get("x-clerk-id") ??
+    headers.get("x-owner-id") ??
+    headers.get("x-user-id");
+
+  const fromBodyMeta =
+    body?.metadata && typeof body.metadata === "object"
+      ? (body.metadata as Record<string, unknown>)
+      : undefined;
+
+  const clerkId =
+    (typeof args.clerkId === "string" && args.clerkId.trim()) ||
+    (typeof args.ownerId === "string" && args.ownerId.trim()) ||
+    (typeof body.clerkId === "string" && body.clerkId.trim()) ||
+    (typeof body.ownerId === "string" && body.ownerId.trim()) ||
+    (typeof fromBodyMeta?.clerkId === "string" &&
+      fromBodyMeta.clerkId.trim()) ||
+    (typeof fromBodyMeta?.ownerId === "string" &&
+      fromBodyMeta.ownerId.trim()) ||
+    (typeof clerkIdFromHeaders === "string" && clerkIdFromHeaders.trim()) ||
+    undefined;
+
+  return { clerkId, ownerId: clerkId };
+}
+
+async function resolveBookOwnerId(bookId: string): Promise<string | undefined> {
+  try {
+    await connectToDatabase();
+    const book = await Book.findById(bookId).select("clerkId").lean();
+    const clerkId =
+      book && typeof (book as { clerkId?: unknown }).clerkId === "string"
+        ? (book as { clerkId: string }).clerkId
+        : undefined;
+
+    return clerkId;
+  } catch {
+    return undefined;
+  }
+}
+
+// Helper function to process book search logic
+async function processBookSearch(
+  bookId: unknown,
+  query: unknown,
+  context?: SearchContext,
+) {
+  // Validate inputs before conversion to prevent null/undefined becoming "null"/"undefined" strings
+  if (bookId == null || query == null || query === "") {
+    return { result: "Missing bookId or query" };
+  }
+
+  // Convert bookId to string
+  const bookIdStr = String(bookId);
+  const queryStr = String(query).trim();
+
+  // Additional validation after conversion
+  if (
+    !bookIdStr ||
+    bookIdStr === "null" ||
+    bookIdStr === "undefined" ||
+    !queryStr
+  ) {
+    return { result: "Missing bookId or query" };
+  }
+
+  const resolvedContext =
+    context?.clerkId || context?.ownerId
+      ? context
+      : {
+          clerkId: await resolveBookOwnerId(bookIdStr),
+        };
+
+  // Execute search
+  const searchResult = await searchBookSegments(
+    bookIdStr,
+    queryStr,
+    3,
+    resolvedContext,
+  );
+
+  if (!searchResult.success && searchResult.error === "AuthRequired") {
+    return {
+      success: false,
+      error: "AuthRequired",
+      result: "Authentication required for book search.",
+    };
+  }
+
+  // Return results
+  if (!searchResult.success || !searchResult.data?.length) {
+    return { result: "No information found about this topic in the book." };
+  }
+
+  const combinedText = searchResult.data
+    .map((segment) => (segment as { content: string }).content)
+    .join("\n\n");
+
+  return { result: combinedText };
+}
+
+export async function GET() {
+  return NextResponse.json({ status: "ok" });
+}
+
+// Parse tool arguments that may arrive as a JSON string or an object
+function parseArgs(args: unknown): Record<string, unknown> {
+  if (!args) return {};
+  if (typeof args === "string") {
+    try {
+      return JSON.parse(args);
+    } catch {
+      return {};
+    }
+  }
+  return args as Record<string, unknown>;
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const requestBody =
+      body && typeof body === "object" ? (body as Record<string, unknown>) : {};
+
+    console.log("Vapi search-book request:", JSON.stringify(body, null, 2));
+
+    // Support multiple Vapi formats
+    const functionCall = body?.message?.functionCall;
+    const toolCallList =
+      body?.message?.toolCallList || body?.message?.toolCalls;
+
+    // Handle single functionCall format
+    if (functionCall) {
+      const { name, parameters } = functionCall;
+      const parsed = parseArgs(parameters);
+      const userContext = extractUserContext(request, requestBody, parsed);
+
+      if (name === "searchBook") {
+        const result = await processBookSearch(
+          parsed.bookId,
+          parsed.query,
+          userContext,
+        );
+        return NextResponse.json(result);
+      }
+
+      return NextResponse.json({ result: `Unknown function: ${name}` });
+    }
+
+    // Handle toolCallList format (array of calls)
+    if (!toolCallList || toolCallList.length === 0) {
+      return NextResponse.json({
+        results: [{ result: "No tool calls found" }],
+      });
+    }
+
+    const results = [];
+
+    for (const toolCall of toolCallList) {
+      const { id, function: func } = toolCall;
+      const name = func?.name;
+      const args = parseArgs(func?.arguments);
+      const userContext = extractUserContext(request, requestBody, args);
+
+      if (name === "searchBook") {
+        const searchResult = await processBookSearch(
+          args.bookId,
+          args.query,
+          userContext,
+        );
+        results.push({ toolCallId: id, ...searchResult });
+      } else {
+        results.push({ toolCallId: id, result: `Unknown function: ${name}` });
+      }
+    }
+
+    return NextResponse.json({ results });
+  } catch (error) {
+    console.error("Vapi search-book error:", error);
+    return NextResponse.json({
+      results: [{ result: "Error processing request" }],
+    });
+  }
+}
