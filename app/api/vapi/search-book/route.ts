@@ -1,8 +1,66 @@
 import { NextResponse } from "next/server";
 import { searchBookSegments } from "@/lib/actions/book.actions";
+import { connectToDatabase } from "@/database/mongoose";
+import Book from "@/database/models/book.model";
+
+type SearchContext = {
+  clerkId?: string;
+  ownerId?: string;
+};
+
+function extractUserContext(
+  request: Request,
+  body: Record<string, unknown>,
+  args: Record<string, unknown>,
+): SearchContext {
+  const headers = request.headers;
+  const clerkIdFromHeaders =
+    headers.get("x-clerk-user-id") ??
+    headers.get("x-clerk-id") ??
+    headers.get("x-owner-id") ??
+    headers.get("x-user-id");
+
+  const fromBodyMeta =
+    body?.metadata && typeof body.metadata === "object"
+      ? (body.metadata as Record<string, unknown>)
+      : undefined;
+
+  const clerkId =
+    (typeof args.clerkId === "string" && args.clerkId.trim()) ||
+    (typeof args.ownerId === "string" && args.ownerId.trim()) ||
+    (typeof body.clerkId === "string" && body.clerkId.trim()) ||
+    (typeof body.ownerId === "string" && body.ownerId.trim()) ||
+    (typeof fromBodyMeta?.clerkId === "string" &&
+      fromBodyMeta.clerkId.trim()) ||
+    (typeof fromBodyMeta?.ownerId === "string" &&
+      fromBodyMeta.ownerId.trim()) ||
+    (typeof clerkIdFromHeaders === "string" && clerkIdFromHeaders.trim()) ||
+    undefined;
+
+  return { clerkId, ownerId: clerkId };
+}
+
+async function resolveBookOwnerId(bookId: string): Promise<string | undefined> {
+  try {
+    await connectToDatabase();
+    const book = await Book.findById(bookId).select("clerkId").lean();
+    const clerkId =
+      book && typeof (book as { clerkId?: unknown }).clerkId === "string"
+        ? (book as { clerkId: string }).clerkId
+        : undefined;
+
+    return clerkId;
+  } catch {
+    return undefined;
+  }
+}
 
 // Helper function to process book search logic
-async function processBookSearch(bookId: unknown, query: unknown) {
+async function processBookSearch(
+  bookId: unknown,
+  query: unknown,
+  context?: SearchContext,
+) {
   // Validate inputs before conversion to prevent null/undefined becoming "null"/"undefined" strings
   if (bookId == null || query == null || query === "") {
     return { result: "Missing bookId or query" };
@@ -22,8 +80,28 @@ async function processBookSearch(bookId: unknown, query: unknown) {
     return { result: "Missing bookId or query" };
   }
 
+  const resolvedContext =
+    context?.clerkId || context?.ownerId
+      ? context
+      : {
+          clerkId: await resolveBookOwnerId(bookIdStr),
+        };
+
   // Execute search
-  const searchResult = await searchBookSegments(bookIdStr, queryStr, 3);
+  const searchResult = await searchBookSegments(
+    bookIdStr,
+    queryStr,
+    3,
+    resolvedContext,
+  );
+
+  if (!searchResult.success && searchResult.error === "AuthRequired") {
+    return {
+      success: false,
+      error: "AuthRequired",
+      result: "Authentication required for book search.",
+    };
+  }
 
   // Return results
   if (!searchResult.success || !searchResult.data?.length) {
@@ -57,6 +135,8 @@ function parseArgs(args: unknown): Record<string, unknown> {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    const requestBody =
+      body && typeof body === "object" ? (body as Record<string, unknown>) : {};
 
     console.log("Vapi search-book request:", JSON.stringify(body, null, 2));
 
@@ -69,9 +149,14 @@ export async function POST(request: Request) {
     if (functionCall) {
       const { name, parameters } = functionCall;
       const parsed = parseArgs(parameters);
+      const userContext = extractUserContext(request, requestBody, parsed);
 
       if (name === "searchBook") {
-        const result = await processBookSearch(parsed.bookId, parsed.query);
+        const result = await processBookSearch(
+          parsed.bookId,
+          parsed.query,
+          userContext,
+        );
         return NextResponse.json(result);
       }
 
@@ -91,9 +176,14 @@ export async function POST(request: Request) {
       const { id, function: func } = toolCall;
       const name = func?.name;
       const args = parseArgs(func?.arguments);
+      const userContext = extractUserContext(request, requestBody, args);
 
       if (name === "searchBook") {
-        const searchResult = await processBookSearch(args.bookId, args.query);
+        const searchResult = await processBookSearch(
+          args.bookId,
+          args.query,
+          userContext,
+        );
         results.push({ toolCallId: id, ...searchResult });
       } else {
         results.push({ toolCallId: id, result: `Unknown function: ${name}` });

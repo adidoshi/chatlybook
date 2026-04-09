@@ -124,6 +124,10 @@ const useVapi = (book: IBook) => {
     isStartingRef.current = true;
     const ASSISTANT_ID = process.env.NEXT_PUBLIC_ASSISTANT_ID;
     setLimitError(null);
+    if (!ASSISTANT_ID) {
+      setLimitError("Voice assistant is not configured.");
+      return;
+    }
     setStatus("connecting");
     setDuration(0);
     setMessages([]);

@@ -237,14 +237,22 @@ export const searchBookSegments = async (
   bookId: string,
   query: string,
   limit: number = 5,
+  options?: { clerkId?: string; ownerId?: string },
 ) => {
   try {
     const safeLimit = Number.isFinite(limit)
       ? Math.min(Math.max(Math.trunc(limit), 1), 20)
       : 5;
-    const { userId } = await auth();
-    if (!userId) {
-      return { success: false, error: "Unauthorized", data: [] };
+    const requestClerkId = options?.clerkId ?? options?.ownerId;
+
+    let resolvedClerkId = requestClerkId;
+    if (!resolvedClerkId) {
+      const { userId } = await auth();
+      resolvedClerkId = userId ?? undefined;
+    }
+
+    if (!resolvedClerkId) {
+      return { success: false, error: "AuthRequired", data: [] };
     }
     await connectToDatabase();
 
@@ -259,7 +267,7 @@ export const searchBookSegments = async (
     let segments: Record<string, unknown>[] = [];
     try {
       segments = await BookSegment.find({
-        clerkId: userId,
+        clerkId: resolvedClerkId,
         bookId: bookObjectId,
         $text: { $search: query },
       })
@@ -267,7 +275,15 @@ export const searchBookSegments = async (
         .sort({ score: { $meta: "textScore" } })
         .limit(safeLimit)
         .lean();
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message.toLowerCase() : "";
+      const missingTextIndex =
+        message.includes("text index required") ||
+        message.includes("index not found");
+      if (!missingTextIndex) {
+        throw error;
+      }
+
       // Text index may not exist — fall through to regex fallback
       segments = [];
     }
@@ -281,7 +297,7 @@ export const searchBookSegments = async (
       }
 
       segments = await BookSegment.find({
-        clerkId: userId,
+        clerkId: resolvedClerkId,
         bookId: bookObjectId,
         content: { $regex: pattern, $options: "i" },
       })
