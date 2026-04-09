@@ -91,6 +91,7 @@ const useVapi = (book: IBook) => {
   const timeRef = useRef<NodeJS.Timeout | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const isStoppingRef = useRef<boolean>(false);
+  const isStartingRef = useRef<boolean>(false);
 
   const isActive =
     status === "listening" ||
@@ -119,6 +120,8 @@ const useVapi = (book: IBook) => {
   };
 
   const start = async () => {
+    if (isStartingRef.current || status !== "idle") return;
+    isStartingRef.current = true;
     const ASSISTANT_ID = process.env.NEXT_PUBLIC_ASSISTANT_ID;
     setLimitError(null);
     setStatus("connecting");
@@ -167,6 +170,8 @@ const useVapi = (book: IBook) => {
       setLimitError(
         "An error occurred while starting the session. Please try again.",
       );
+    } finally {
+      isStartingRef.current = false;
     }
   };
   const stop = async () => {

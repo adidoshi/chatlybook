@@ -93,12 +93,8 @@ export const ACCEPTED_IMAGE_TYPES = [
   "image/webp",
 ];
 
-// Pre-configured VAPI assistant ID
-const assistantId = process.env.NEXT_PUBLIC_ASSISTANT_ID;
-if (!assistantId) {
-  throw new Error("Missing NEXT_PUBLIC_ASSISTANT_ID");
-}
-export const ASSISTANT_ID = assistantId;
+// Pre-configured VAPI assistant ID (hardcoded for this app)
+export const ASSISTANT_ID = process.env.NEXT_PUBLIC_ASSISTANT_ID!;
 
 // 11Labs Voice IDs - Optimized for conversational AI
 // Voices selected for natural, engaging book conversations

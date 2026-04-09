@@ -239,6 +239,9 @@ export const searchBookSegments = async (
   limit: number = 5,
 ) => {
   try {
+    const safeLimit = Number.isFinite(limit)
+      ? Math.min(Math.max(Math.trunc(limit), 1), 20)
+      : 5;
     const { userId } = await auth();
     if (!userId) {
       return { success: false, error: "Unauthorized", data: [] };
@@ -262,7 +265,7 @@ export const searchBookSegments = async (
       })
         .select("_id bookId content segmentIndex pageNumber wordCount")
         .sort({ score: { $meta: "textScore" } })
-        .limit(limit)
+        .limit(safeLimit)
         .lean();
     } catch {
       // Text index may not exist — fall through to regex fallback
@@ -284,7 +287,7 @@ export const searchBookSegments = async (
       })
         .select("_id bookId content segmentIndex pageNumber wordCount")
         .sort({ segmentIndex: 1 })
-        .limit(limit)
+        .limit(safeLimit)
         .lean();
     }
 
