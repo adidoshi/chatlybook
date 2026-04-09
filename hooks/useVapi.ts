@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { IBook, Messages } from "@/types";
-import { useAuth } from "@clerk/nextjs";
 import {
   endVoiceSession,
   startVoiceSession,
@@ -14,14 +13,6 @@ export type CallStatus =
   | "listening"
   | "thinking"
   | "speaking";
-
-const useLatestRef = <T>(value: T) => {
-  const ref = useRef(value);
-  useEffect(() => {
-    ref.current = value;
-  }, [value]);
-  return ref;
-};
 
 const VAPI_API_KEY = process.env.NEXT_PUBLIC_VAPI_API_KEY;
 
@@ -88,7 +79,6 @@ const extractTranscriptMessage = (
 };
 
 const useVapi = (book: IBook) => {
-  const { userId } = useAuth();
   // TODO: Implement limits per user
 
   const [status, setStatus] = useState<CallStatus>("idle");
@@ -102,7 +92,6 @@ const useVapi = (book: IBook) => {
   const sessionIdRef = useRef<string | null>(null);
   const isStoppingRef = useRef<boolean>(false);
 
-  const durationRef = useLatestRef(duration);
   const isActive =
     status === "listening" ||
     status === "thinking" ||
@@ -131,10 +120,6 @@ const useVapi = (book: IBook) => {
 
   const start = async () => {
     const ASSISTANT_ID = process.env.NEXT_PUBLIC_ASSISTANT_ID;
-    if (!userId) {
-      setLimitError("You must be signed in to use this feature.");
-      return;
-    }
     setLimitError(null);
     setStatus("connecting");
     setDuration(0);
@@ -143,7 +128,7 @@ const useVapi = (book: IBook) => {
     setCurrentUserMessage("");
 
     try {
-      const result = await startVoiceSession(userId, book._id);
+      const result = await startVoiceSession(book._id);
 
       if (!result.success) {
         setLimitError(
@@ -169,6 +154,15 @@ const useVapi = (book: IBook) => {
       });
     } catch (error) {
       console.error("Error starting VAPI session:", error);
+      if (sessionIdRef.current) {
+        endVoiceSession(sessionIdRef.current).catch((e) => {
+          console.error(
+            "Failed to rollback voice session after start failure",
+            e,
+          );
+          sessionIdRef.current = null;
+        });
+      }
       setStatus("idle");
       setLimitError(
         "An error occurred while starting the session. Please try again.",
@@ -212,7 +206,7 @@ const useVapi = (book: IBook) => {
       if (!sessionId) return;
 
       sessionIdRef.current = null;
-      const result = await endVoiceSession(sessionId, durationRef.current);
+      const result = await endVoiceSession(sessionId);
 
       if (!result.success) {
         console.error(
@@ -298,7 +292,7 @@ const useVapi = (book: IBook) => {
       instance.removeListener("message", onMessage);
       instance.removeListener("error", onError);
     };
-  }, [durationRef]);
+  }, []);
 
   return {
     status,

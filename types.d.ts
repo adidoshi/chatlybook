@@ -1,5 +1,6 @@
 import { Document, Types } from "mongoose";
 import { UploadSchema } from "./lib/zod";
+import { PLANS, PlanType } from "@/lib/subscription-constants";
 
 export interface BookCardProps {
   title: string;

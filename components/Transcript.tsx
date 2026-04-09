@@ -43,7 +43,13 @@ const Transcript = ({
 
   return (
     <section className="transcript-container">
-      <div ref={messagesRef} className="transcript-messages">
+      <div
+        ref={messagesRef}
+        className="transcript-messages"
+        role="log"
+        aria-live="polite"
+        aria-relevant="additions text"
+      >
         {messages.map((message, index) => {
           const isUser = message.role.toLowerCase() === "user";
 
@@ -73,7 +79,7 @@ const Transcript = ({
           <div className="transcript-message transcript-message-user">
             <div className="transcript-bubble transcript-bubble-user whitespace-pre-wrap">
               {currentUserMessage}
-              <span className="transcript-cursor" />
+              <span className="transcript-cursor" aria-hidden="true" />
             </div>
           </div>
         )}
@@ -82,7 +88,7 @@ const Transcript = ({
           <div className="transcript-message transcript-message-assistant">
             <div className="transcript-bubble transcript-bubble-assistant whitespace-pre-wrap">
               {currentMessage}
-              <span className="transcript-cursor" />
+              <span className="transcript-cursor" aria-hidden="true" />
             </div>
           </div>
         )}

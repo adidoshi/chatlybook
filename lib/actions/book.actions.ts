@@ -239,9 +239,16 @@ export const searchBookSegments = async (
   limit: number = 5,
 ) => {
   try {
+    const { userId } = await auth();
+    if (!userId) {
+      return { success: false, error: "Unauthorized", data: [] };
+    }
     await connectToDatabase();
 
-    console.log(`Searching for: "${query}" in book ${bookId}`);
+    console.log("Searching book segments", {
+      bookId,
+      queryLength: query.length,
+    });
 
     const bookObjectId = new mongoose.Types.ObjectId(bookId);
 
@@ -249,6 +256,7 @@ export const searchBookSegments = async (
     let segments: Record<string, unknown>[] = [];
     try {
       segments = await BookSegment.find({
+        clerkId: userId,
         bookId: bookObjectId,
         $text: { $search: query },
       })
@@ -265,8 +273,12 @@ export const searchBookSegments = async (
     if (segments.length === 0) {
       const keywords = query.split(/\s+/).filter((k) => k.length > 2);
       const pattern = keywords.map(escapeRegex).join("|");
+      if (keywords.length === 0) {
+        return { success: true, data: [] };
+      }
 
       segments = await BookSegment.find({
+        clerkId: userId,
         bookId: bookObjectId,
         content: { $regex: pattern, $options: "i" },
       })
@@ -276,7 +288,10 @@ export const searchBookSegments = async (
         .lean();
     }
 
-    console.log(`Search complete. Found ${segments.length} results`);
+    console.log("Book segment search complete", {
+      bookId,
+      resultCount: segments.length,
+    });
 
     return {
       success: true,
