@@ -7,6 +7,17 @@ import {
 import Vapi from "@vapi-ai/web";
 import { getVoice } from "@/lib/utils";
 import { DEFAULT_VOICE, VOICE_SETTINGS } from "@/lib/constants";
+import { useSubscriptionPlan } from "./useSubscriptionPlan";
+
+export function useLatestRef<T>(value: T) {
+  const ref = useRef(value);
+
+  useEffect(() => {
+    ref.current = value;
+  }, [value]);
+
+  return ref;
+}
 
 export type CallStatus =
   | "idle"
@@ -38,6 +49,12 @@ type TranscriptMessage = {
   role: TranscriptRole;
   transcriptType: TranscriptType;
   transcript: string;
+};
+
+type StatusUpdateMessage = {
+  type: "status-update";
+  status: string;
+  endedReason?: string;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
@@ -80,8 +97,108 @@ const extractTranscriptMessage = (
   return null;
 };
 
+const extractStatusUpdateMessage = (
+  payload: unknown,
+): StatusUpdateMessage | null => {
+  const candidate =
+    isRecord(payload) && isRecord(payload.message) ? payload.message : payload;
+
+  if (!isRecord(candidate)) return null;
+
+  if (
+    candidate.type !== "status-update" ||
+    typeof candidate.status !== "string"
+  ) {
+    return null;
+  }
+
+  const endedReason =
+    typeof candidate.endedReason === "string"
+      ? candidate.endedReason
+      : undefined;
+
+  return {
+    type: "status-update",
+    status: candidate.status,
+    endedReason,
+  };
+};
+
+const getCallEndMessage = (endedReason?: string) => {
+  if (!endedReason) {
+    return "The call ended unexpectedly. Please try again.";
+  }
+
+  if (endedReason.toLowerCase().includes("eject")) {
+    return "The call was ended by the voice provider (ejected). This is usually caused by assistant call-end rules or provider-side safeguards. Please retry, and if it keeps happening, review your Vapi assistant end-call settings.";
+  }
+
+  if (endedReason === "assistant-ended-call") {
+    return "The assistant ended the call. Please start a new conversation.";
+  }
+
+  return `Call ended: ${endedReason.replace(/-/g, " ")}.`;
+};
+
+const extractErrorText = (error: unknown): string | null => {
+  if (typeof error === "string") return error;
+
+  if (isRecord(error)) {
+    if (typeof error.message === "string") return error.message;
+
+    if (isRecord(error.error) && typeof error.error.message === "string") {
+      return error.error.message;
+    }
+  }
+
+  return null;
+};
+
+const getRuntimeErrorMessage = (error: unknown): string | null => {
+  if (!isRecord(error)) {
+    return extractErrorText(error);
+  }
+
+  const topLevelType =
+    typeof error.type === "string" ? error.type.toLowerCase() : undefined;
+  const errorNode = isRecord(error.error) ? error.error : undefined;
+  const nestedError =
+    errorNode && isRecord(errorNode.error) ? errorNode.error : undefined;
+  const nestedMessage =
+    errorNode && isRecord(errorNode.message) ? errorNode.message : undefined;
+
+  const nestedType =
+    (nestedError && typeof nestedError.type === "string"
+      ? nestedError.type
+      : undefined) ||
+    (nestedMessage && typeof nestedMessage.type === "string"
+      ? nestedMessage.type
+      : undefined);
+
+  const nestedMsg =
+    (nestedError && typeof nestedError.msg === "string"
+      ? nestedError.msg
+      : undefined) ||
+    (nestedMessage && typeof nestedMessage.msg === "string"
+      ? nestedMessage.msg
+      : undefined) ||
+    (errorNode && typeof errorNode.errorMsg === "string"
+      ? errorNode.errorMsg
+      : undefined);
+
+  if (
+    nestedType?.toLowerCase() === "ejected" ||
+    (topLevelType === "daily-error" &&
+      nestedMsg?.toLowerCase() === "meeting has ended")
+  ) {
+    return "The voice call ended because the meeting room was closed by the provider (ejected). This usually comes from assistant end-call behavior or room-side termination, not your microphone. Please start a new call.";
+  }
+
+  return nestedMsg || extractErrorText(error);
+};
+
 const useVapi = (book: IBook) => {
-  // TODO: Implement limits per user
+  const { limits } = useSubscriptionPlan();
 
   const [status, setStatus] = useState<CallStatus>("idle");
   const [messages, setMessages] = useState<Messages[]>([]);
@@ -97,14 +214,13 @@ const useVapi = (book: IBook) => {
 
   const voice = book.persona || DEFAULT_VOICE;
 
+  const maxDurationSeconds = limits.maxSessionMinutes * 60;
+
   const isActive =
     status === "listening" ||
     status === "thinking" ||
     status === "speaking" ||
     status === "starting";
-
-  // Set this based on user subscription limits
-  //   const maxDurationRef = useLatestRef(0);
 
   const appendUniqueFinalMessage = (message: Messages) => {
     const content = message.content.trim();
@@ -130,6 +246,7 @@ const useVapi = (book: IBook) => {
     setLimitError(null);
     if (!ASSISTANT_ID) {
       setLimitError("Voice assistant is not configured.");
+      isStartingRef.current = false;
       return;
     }
     setStatus("connecting");
@@ -155,8 +272,9 @@ const useVapi = (book: IBook) => {
 
       setStatus("starting");
 
-      await getVapi().start(ASSISTANT_ID, {
+      const call = await getVapi().start(ASSISTANT_ID, {
         firstMessage,
+        maxDurationSeconds,
         variableValues: {
           title: book.title,
           author: book.author,
@@ -172,20 +290,27 @@ const useVapi = (book: IBook) => {
           useSpeakerBoost: VOICE_SETTINGS.useSpeakerBoost,
         },
       });
+
+      if (!call) {
+        throw new Error("Unable to connect to the voice room.");
+      }
     } catch (error) {
       console.error("Error starting VAPI session:", error);
-      if (sessionIdRef.current) {
-        endVoiceSession(sessionIdRef.current).catch((e) => {
+      const sessionIdToRollback = sessionIdRef.current;
+      sessionIdRef.current = null;
+
+      if (sessionIdToRollback) {
+        endVoiceSession(sessionIdToRollback).catch((e) => {
           console.error(
             "Failed to rollback voice session after start failure",
             e,
           );
-          sessionIdRef.current = null;
         });
       }
       setStatus("idle");
       setLimitError(
-        "An error occurred while starting the session. Please try again.",
+        getRuntimeErrorMessage(error) ||
+          "An error occurred while starting the session. Please try again.",
       );
     } finally {
       isStartingRef.current = false;
@@ -193,7 +318,13 @@ const useVapi = (book: IBook) => {
   };
   const stop = async () => {
     isStoppingRef.current = true;
-    await getVapi().stop();
+
+    try {
+      await getVapi().stop();
+    } catch (error) {
+      console.error("Error stopping VAPI session:", error);
+      isStoppingRef.current = false;
+    }
   };
   const clearErrors = async () => {
     setLimitError(null);
@@ -262,6 +393,15 @@ const useVapi = (book: IBook) => {
     };
 
     const onMessage = (payload: unknown) => {
+      const statusMessage = extractStatusUpdateMessage(payload);
+
+      if (statusMessage?.status === "ended") {
+        if (!isStoppingRef.current) {
+          setLimitError(getCallEndMessage(statusMessage.endedReason));
+        }
+        return;
+      }
+
       const transcriptMessage = extractTranscriptMessage(payload);
       if (!transcriptMessage) return;
 
@@ -293,8 +433,21 @@ const useVapi = (book: IBook) => {
 
     const onError = (error: unknown) => {
       console.error("VAPI runtime error:", error);
+
+      stopDurationTimer();
       setStatus("idle");
-      setLimitError("An error occurred during the call. Please try again.");
+      setCurrentMessage("");
+      setCurrentUserMessage("");
+
+      if (!isStoppingRef.current) {
+        setLimitError(
+          getRuntimeErrorMessage(error) ||
+            "An error occurred during the call. Please try again.",
+        );
+      }
+
+      void finalizeSession();
+      isStoppingRef.current = false;
     };
 
     instance.on("call-start", onCallStart);
@@ -323,6 +476,7 @@ const useVapi = (book: IBook) => {
     currentMessage,
     currentUserMessage,
     duration,
+    maxDurationSeconds,
     limitError,
     start,
     stop,

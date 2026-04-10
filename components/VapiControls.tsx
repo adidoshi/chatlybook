@@ -6,6 +6,50 @@ import { IBook } from "@/types";
 import { Mic, MicOff } from "lucide-react";
 import Image from "next/image";
 
+const formatDuration = (durationSeconds: number) => {
+  const minutes = Math.floor(durationSeconds / 60)
+    .toString()
+    .padStart(1, "0");
+  const seconds = (durationSeconds % 60).toString().padStart(2, "0");
+
+  return `${minutes}:${seconds}`;
+};
+
+const getStatusLabel = (status: string) => {
+  switch (status) {
+    case "connecting":
+      return {
+        displayText: "Connecting",
+        applyColorClass: "vapi-status-dot vapi-status-dot-connecting",
+      };
+    case "starting":
+      return {
+        displayText: "Starting",
+        applyColorClass: "vapi-status-dot vapi-status-dot-starting",
+      };
+    case "listening":
+      return {
+        displayText: "Listening",
+        applyColorClass: "vapi-status-dot vapi-status-dot-listening",
+      };
+    case "thinking":
+      return {
+        displayText: "Thinking",
+        applyColorClass: "vapi-status-dot vapi-status-dot-thinking",
+      };
+    case "speaking":
+      return {
+        displayText: "Speaking",
+        applyColorClass: "vapi-status-dot vapi-status-dot-speaking",
+      };
+    default:
+      return {
+        displayText: "Ready",
+        applyColorClass: "vapi-status-dot vapi-status-dot-ready",
+      };
+  }
+};
+
 const VapiControls = ({ book }: { book: IBook }) => {
   const coverURL = book.coverURL || "/assets/book-cover.svg";
   const persona = book.persona?.trim() || "Default";
@@ -20,13 +64,35 @@ const VapiControls = ({ book }: { book: IBook }) => {
     start,
     stop,
     clearErrors,
+    maxDurationSeconds,
   } = useVapi(book);
 
-  const showPulseRing = isActive && (status === "thinking" || status === "speaking");
+  const showPulseRing =
+    isActive && (status === "thinking" || status === "speaking");
+  const statusLabel = getStatusLabel(status);
 
   return (
     <>
       <div className="mx-auto w-full max-w-4xl space-y-6">
+        {limitError ? (
+          <section
+            role="alert"
+            aria-live="assertive"
+            className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <p>{limitError}</p>
+              <button
+                type="button"
+                onClick={clearErrors}
+                className="shrink-0 rounded-md border border-red-300 bg-white px-2 py-1 text-xs font-semibold text-red-700"
+              >
+                Dismiss
+              </button>
+            </div>
+          </section>
+        ) : null}
+
         <section className="vapi-header-card">
           <div className="vapi-cover-wrapper">
             <Image
@@ -38,7 +104,9 @@ const VapiControls = ({ book }: { book: IBook }) => {
             />
 
             <div className="vapi-mic-wrapper">
-              {showPulseRing ? <span className="vapi-pulse-ring" aria-hidden="true" /> : null}
+              {showPulseRing ? (
+                <span className="vapi-pulse-ring" aria-hidden="true" />
+              ) : null}
               <button
                 type="button"
                 className={`vapi-mic-btn ${isActive ? "vapi-mic-btn-active" : "vapi-mic-btn-inactive"}`}
@@ -64,8 +132,10 @@ const VapiControls = ({ book }: { book: IBook }) => {
 
             <div className="flex flex-wrap items-center gap-3">
               <div className="vapi-status-indicator">
-                <span className="vapi-status-dot vapi-status-dot-ready" />
-                <span className="vapi-status-text">Ready</span>
+                <span className={statusLabel.applyColorClass} />
+                <span className="vapi-status-text">
+                  {statusLabel.displayText}
+                </span>
               </div>
 
               <div className="vapi-status-indicator">
@@ -73,7 +143,10 @@ const VapiControls = ({ book }: { book: IBook }) => {
               </div>
 
               <div className="vapi-status-indicator">
-                <span className="vapi-status-text">0:00/15:00</span>
+                <span className="vapi-status-text">
+                  {formatDuration(duration)}/
+                  {formatDuration(maxDurationSeconds)}
+                </span>
               </div>
             </div>
           </div>

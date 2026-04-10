@@ -7,6 +7,10 @@ import Book from "@/database/models/book.model";
 import BookSegment from "@/database/models/book-segment.model";
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
+import {
+  evaluateLimit,
+  getSubscriptionSnapshotFromHas,
+} from "@/lib/subscription";
 
 export const getAllBooks = async () => {
   try {
@@ -94,7 +98,7 @@ export const checkBookExists = async (title: string) => {
 };
 
 export const createBook = async (data: CreateBook) => {
-  const { userId } = await auth();
+  const { userId, has } = await auth();
   if (!userId) {
     return { success: false, error: "Unauthorized" };
   }
@@ -113,7 +117,21 @@ export const createBook = async (data: CreateBook) => {
       };
     }
 
-    // Todo: Check subscription limits here before creating the book
+    const subscription = getSubscriptionSnapshotFromHas(has);
+    const booksCreated = await Book.countDocuments({ clerkId: userId });
+    const limitCheck = evaluateLimit(
+      booksCreated,
+      subscription.limits.maxBooks,
+    );
+
+    if (!limitCheck.allowed) {
+      return {
+        success: false,
+        error: `You have reached the ${subscription.limits.label} plan limit of ${subscription.limits.maxBooks} book(s). Upgrade your plan to upload more books.`,
+        isBillingError: true,
+      };
+    }
+
     const book = await Book.create({
       ...data,
       clerkId: userId,
@@ -150,9 +168,15 @@ export const createBook = async (data: CreateBook) => {
     }
 
     console.error("Error creating book:", e);
+
+    const errorMessage =
+      e instanceof Error ? e.message : "Failed to create book";
+    const isBillingError = /plan limit|upgrade your plan/i.test(errorMessage);
+
     return {
       success: false,
-      error: e instanceof Error ? e.message : "Failed to create book",
+      error: errorMessage,
+      isBillingError,
     };
   }
 };

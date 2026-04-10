@@ -17,11 +17,7 @@ import LoadingOverlay from "./LoadingOverlay";
 import { UploadSchema } from "@/lib/zod";
 import { UploadFormInput, UploadFormValues } from "@/types";
 import FileUploader from "./FileUploader";
-import {
-  ACCEPTED_IMAGE_TYPES,
-  ACCEPTED_PDF_TYPES,
-  DEFAULT_VOICE,
-} from "@/lib/constants";
+import { ACCEPTED_IMAGE_TYPES, ACCEPTED_PDF_TYPES } from "@/lib/constants";
 import { Input } from "./ui/input";
 import VoiceSelector from "./VoiceSelector";
 import { useAuth } from "@clerk/react";
@@ -130,7 +126,21 @@ const UploadForm = () => {
         fileSize: pdfFile.size,
       });
 
-      if (!book.success) throw new Error("Book creation failed");
+      if (!book.success) {
+        const billingMessagePattern = /plan limit|upgrade your plan/i;
+        const isBillingLimitError =
+          book.isBillingError === true ||
+          (typeof book.error === "string" &&
+            billingMessagePattern.test(book.error));
+
+        toast.error(book.error || "Book creation failed");
+
+        if (isBillingLimitError) {
+          router.push("/subscriptions");
+        }
+
+        return;
+      }
 
       if (book.alreadyExists) {
         toast.info(
@@ -155,9 +165,20 @@ const UploadForm = () => {
       router.push("/");
     } catch (error) {
       console.error("Error during book upload:", error);
-      toast.error(
-        "An error occurred while uploading the book. Please try again.",
-      );
+
+      const fallbackMessage =
+        "An error occurred while uploading the book. Please try again.";
+      const errorMessage =
+        error instanceof Error && error.message
+          ? error.message
+          : fallbackMessage;
+      const billingMessagePattern = /plan limit|upgrade your plan/i;
+
+      toast.error(errorMessage);
+
+      if (billingMessagePattern.test(errorMessage)) {
+        router.push("/subscriptions");
+      }
     }
 
     // Placeholder submit flow until backend upload/synthesis endpoints are wired.
