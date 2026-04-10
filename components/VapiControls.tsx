@@ -75,7 +75,11 @@ const VapiControls = ({ book }: { book: IBook }) => {
     <>
       <div className="mx-auto w-full max-w-4xl space-y-6">
         {limitError ? (
-          <section className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          <section
+            role="alert"
+            aria-live="assertive"
+            className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+          >
             <div className="flex items-start justify-between gap-3">
               <p>{limitError}</p>
               <button
