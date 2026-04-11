@@ -428,13 +428,16 @@ const useVapi = (book: IBook) => {
       if (!sessionId) return;
 
       sessionIdRef.current = null;
-      const result = await endVoiceSession(sessionId);
-
-      if (!result.success) {
-        console.error(
-          "Unable to persist voice session end state",
-          result.error,
-        );
+      try {
+        const result = await endVoiceSession(sessionId);
+        if (!result.success) {
+          console.error(
+            "Unable to persist voice session end state",
+            result.error,
+          );
+        }
+      } catch (error) {
+        console.error("Failed to finalize voice session", error);
       }
     };
 
@@ -540,6 +543,11 @@ const useVapi = (book: IBook) => {
       instance.removeListener("speech-end", onSpeechEnd);
       instance.removeListener("message", onMessage);
       instance.removeListener("error", onError);
+
+      void instance.stop().catch((error) => {
+        console.error("Error stopping VAPI during cleanup:", error);
+      });
+      void finalizeSession();
     };
   }, []);
 

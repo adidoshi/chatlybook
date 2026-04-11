@@ -63,7 +63,10 @@ const UploadForm = () => {
         return;
       }
 
-      const fileTitle = values.title.replace(/\s+/g, "-").toLowerCase();
+      const fileTitle = values.title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
       const pdfFile = values.pdfFile;
 
       if (!(pdfFile instanceof File)) {
@@ -161,7 +164,10 @@ const UploadForm = () => {
         toast.error(
           "Book was created but saving segments failed. Please contact support.",
         );
-        throw new Error("Saving book segments failed");
+        // Don't throw - the toast already informed the user.
+        // Navigate to the book page so they can retry or view partial state.
+        router.push(`/books/${book.data.slug}`);
+        return;
       }
 
       form.reset();
@@ -184,9 +190,6 @@ const UploadForm = () => {
         router.push("/subscriptions");
       }
     }
-
-    // Placeholder submit flow until backend upload/synthesis endpoints are wired.
-    // await new Promise((resolve) => setTimeout(resolve, 1200));
     console.log("Upload payload ready", values);
   };
 

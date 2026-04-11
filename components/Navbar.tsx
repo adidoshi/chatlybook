@@ -63,7 +63,7 @@ const Navbar = () => {
             const activePath = resolvedHref.split("?")[0];
             const isActive =
               pathName === activePath ||
-              (activePath !== "/" && pathName.startsWith(activePath));
+              (activePath !== "/" && pathName.startsWith(`${activePath}/`));
             return (
               <Link
                 key={label}
