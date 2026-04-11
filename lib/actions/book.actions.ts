@@ -1,0 +1,412 @@
+"use server";
+import mongoose from "mongoose";
+import { connectToDatabase } from "@/database/mongoose";
+import { CreateBook, TextSegment } from "@/types";
+import { escapeRegex, generateSlug, serializeData } from "../utils";
+import Book from "@/database/models/book.model";
+import BookSegment from "@/database/models/book-segment.model";
+import { auth } from "@clerk/nextjs/server";
+import { revalidatePath } from "next/cache";
+import {
+  evaluateLimit,
+  getSubscriptionSnapshotFromHas,
+} from "@/lib/subscription";
+
+export const getAllBooks = async () => {
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    await connectToDatabase();
+    const books = await Book.find({ clerkId: userId })
+      .sort({ createdAt: -1 })
+      .lean();
+    return {
+      success: true,
+      data: serializeData(books),
+    };
+  } catch (error) {
+    console.error("Error fetching books:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch books",
+    };
+  }
+};
+
+export const searchBooks = async (query: string) => {
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    await connectToDatabase();
+
+    const trimmedQuery = query.trim();
+    const filter = !trimmedQuery
+      ? { clerkId: userId }
+      : {
+          clerkId: userId,
+          $or: [
+            { title: { $regex: escapeRegex(trimmedQuery), $options: "i" } },
+            { author: { $regex: escapeRegex(trimmedQuery), $options: "i" } },
+          ],
+        };
+
+    const books = await Book.find(filter).sort({ createdAt: -1 }).lean();
+
+    return {
+      success: true,
+      data: serializeData(books),
+    };
+  } catch (error) {
+    console.error("Error searching books:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to search books",
+    };
+  }
+};
+
+export const getBookBySlug = async (slug: string) => {
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    await connectToDatabase();
+
+    const book = await Book.findOne({ clerkId: userId, slug }).lean();
+
+    if (!book) {
+      return { success: false, error: "Book not found" };
+    }
+
+    return {
+      success: true,
+      data: serializeData(book),
+    };
+  } catch (error) {
+    console.error("Error fetching book by slug:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to fetch book by slug",
+    };
+  }
+};
+
+export const checkBookExists = async (title: string) => {
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return { exists: false, error: "Unauthorized" };
+    }
+
+    await connectToDatabase();
+
+    const slug = generateSlug(title);
+
+    const existingBook = await Book.findOne({ clerkId: userId, slug }).lean();
+
+    if (existingBook) {
+      return {
+        exists: true,
+        book: serializeData(existingBook),
+      };
+    }
+
+    return {
+      exists: false,
+    };
+  } catch (e) {
+    console.error("Error checking book exists", e);
+    return {
+      exists: false,
+      error: e instanceof Error ? e.message : "Failed to check if book exists",
+    };
+  }
+};
+
+export const createBook = async (data: CreateBook) => {
+  const { userId, has } = await auth();
+  if (!userId) {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  const slug = generateSlug(data.title);
+
+  try {
+    await connectToDatabase();
+
+    const existingBook = await Book.findOne({ slug, clerkId: userId }).lean();
+    if (existingBook) {
+      return {
+        success: true,
+        data: serializeData(existingBook),
+        alreadyExists: true,
+      };
+    }
+
+    const subscription = getSubscriptionSnapshotFromHas(has);
+    const booksCreated = await Book.countDocuments({ clerkId: userId });
+    const limitCheck = evaluateLimit(
+      booksCreated,
+      subscription.limits.maxBooks,
+    );
+
+    if (!limitCheck.allowed) {
+      return {
+        success: false,
+        error: `You have reached the ${subscription.limits.label} plan limit of ${subscription.limits.maxBooks} book(s). Upgrade your plan to upload more books.`,
+        isBillingError: true,
+      };
+    }
+
+    const book = await Book.create({
+      ...data,
+      clerkId: userId,
+      slug,
+      totalSegments: 0,
+    });
+
+    revalidatePath("/");
+
+    return {
+      success: true,
+      data: serializeData(book),
+    };
+  } catch (e) {
+    // Handle race conditions on unique owner+slug index as already-existing book.
+    if (
+      typeof e === "object" &&
+      e !== null &&
+      "code" in e &&
+      (e as { code?: number }).code === 11000
+    ) {
+      const existingBook = await Book.findOne({
+        slug,
+        clerkId: userId,
+      }).lean();
+
+      if (existingBook) {
+        return {
+          success: true,
+          data: serializeData(existingBook),
+          alreadyExists: true,
+        };
+      }
+    }
+
+    console.error("Error creating book:", e);
+
+    const errorMessage =
+      e instanceof Error ? e.message : "Failed to create book";
+    const isBillingError = /plan limit|upgrade your plan/i.test(errorMessage);
+
+    return {
+      success: false,
+      error: errorMessage,
+      isBillingError,
+    };
+  }
+};
+
+export const saveBookSegments = async (
+  bookId: string,
+  segments: TextSegment[],
+) => {
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    await connectToDatabase();
+
+    const existingBook = await Book.findOne({ _id: bookId, clerkId: userId })
+      .select("_id")
+      .lean();
+
+    if (!existingBook) {
+      return {
+        success: false,
+        error: "Book not found or access denied",
+      };
+    }
+
+    console.log("Saving book segments...");
+
+    if (segments.length === 0) {
+      await Book.findOneAndUpdate(
+        { _id: bookId, clerkId: userId },
+        { totalSegments: 0 },
+      );
+
+      return {
+        success: false,
+        error: "No searchable text could be extracted from this file.",
+      };
+    }
+
+    const segmentUpserts = segments.map(
+      ({ text, segmentIndex, pageNumber, wordCount }) => ({
+        updateOne: {
+          filter: { bookId, segmentIndex },
+          update: {
+            $set: {
+              clerkId: userId,
+              content: text,
+              pageNumber,
+              wordCount,
+            },
+            $setOnInsert: {
+              bookId,
+              segmentIndex,
+            },
+          },
+          upsert: true,
+        },
+      }),
+    );
+
+    const bulkWriteResult = await BookSegment.bulkWrite(segmentUpserts, {
+      ordered: false,
+    });
+
+    await Book.findOneAndUpdate(
+      { _id: bookId, clerkId: userId },
+      { totalSegments: segments.length },
+    );
+
+    console.log("Book segments saved successfully.");
+
+    return {
+      success: true,
+      data: {
+        segmentsCreated: bulkWriteResult.upsertedCount,
+        segmentsUpdated: bulkWriteResult.modifiedCount,
+        totalProcessed: segments.length,
+      },
+    };
+  } catch (error) {
+    console.error("Error saving book segments:", error);
+
+    // Avoid destructive cleanup for ordinary failures; keep existing data intact.
+    // Rollbacks should only happen through an explicit, higher-level recovery path.
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to save book segments",
+    };
+  }
+};
+
+// Searches book segments using MongoDB text search with regex fallback
+const searchBookSegmentsForClerkId = async (
+  bookId: string,
+  query: string,
+  safeLimit: number,
+  resolvedClerkId: string,
+) => {
+  await connectToDatabase();
+
+  console.log("Searching book segments", {
+    bookId,
+    queryLength: query.length,
+  });
+
+  const bookObjectId = new mongoose.Types.ObjectId(bookId);
+
+  // Try MongoDB text search first (requires text index)
+  let segments: Record<string, unknown>[] = [];
+  try {
+    segments = await BookSegment.find({
+      clerkId: resolvedClerkId,
+      bookId: bookObjectId,
+      $text: { $search: query },
+    })
+      .select("_id bookId content segmentIndex pageNumber wordCount")
+      .sort({ score: { $meta: "textScore" } })
+      .limit(safeLimit)
+      .lean();
+  } catch (error) {
+    const message = error instanceof Error ? error.message.toLowerCase() : "";
+    const missingTextIndex =
+      message.includes("text index required") ||
+      message.includes("index not found");
+    if (!missingTextIndex) {
+      throw error;
+    }
+
+    // Text index may not exist — fall through to regex fallback
+    segments = [];
+  }
+
+  // Fallback: regex search matching ANY keyword
+  if (segments.length === 0) {
+    const keywords = query.split(/\s+/).filter((k) => k.length > 2);
+    const pattern = keywords.map(escapeRegex).join("|");
+    if (keywords.length === 0) {
+      return { success: true, data: [] };
+    }
+
+    segments = await BookSegment.find({
+      clerkId: resolvedClerkId,
+      bookId: bookObjectId,
+      content: { $regex: pattern, $options: "i" },
+    })
+      .select("_id bookId content segmentIndex pageNumber wordCount")
+      .sort({ segmentIndex: 1 })
+      .limit(safeLimit)
+      .lean();
+  }
+
+  console.log("Book segment search complete", {
+    bookId,
+    resultCount: segments.length,
+  });
+
+  return {
+    success: true,
+    data: serializeData(segments),
+  };
+};
+
+export const searchBookSegments = async (
+  bookId: string,
+  query: string,
+  limit: number = 5,
+  _options?: { clerkId?: string; ownerId?: string },
+) => {
+  try {
+    const { userId } = await auth();
+    const resolvedClerkId = userId ?? undefined;
+
+    if (!resolvedClerkId) {
+      return { success: false, error: "AuthRequired", data: [] };
+    }
+
+    const safeLimit = Number.isFinite(limit)
+      ? Math.min(Math.max(Math.trunc(limit), 1), 20)
+      : 5;
+
+    return searchBookSegmentsForClerkId(
+      bookId,
+      query,
+      safeLimit,
+      resolvedClerkId,
+    );
+  } catch (error) {
+    console.error("Error searching segments:", error);
+    return {
+      success: false,
+      error: (error as Error).message,
+      data: [],
+    };
+  }
+};
