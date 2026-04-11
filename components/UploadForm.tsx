@@ -20,7 +20,7 @@ import FileUploader from "./FileUploader";
 import { ACCEPTED_IMAGE_TYPES, ACCEPTED_PDF_TYPES } from "@/lib/constants";
 import { Input } from "./ui/input";
 import VoiceSelector from "./VoiceSelector";
-import { useAuth } from "@clerk/react";
+import { useAuth } from "@clerk/nextjs";
 import { toast } from "sonner";
 import {
   checkBookExists,

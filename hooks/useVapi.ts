@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { IBook, Messages } from "@/types";
 import {
   endVoiceSession,
@@ -234,21 +234,20 @@ const useVapi = (book: IBook) => {
 
   const voice = book.persona || DEFAULT_VOICE;
 
-  const getPlanDurationLimitMessage = () => {
-    const maxDurationMinutes = Math.floor(maxDurationSeconds / 60);
-
-    return `You reached your ${limits.label} plan session limit of ${maxDurationMinutes} minutes. Upgrade your plan for longer voice sessions.`;
-  };
-
-  const handlePlanDurationLimitReached = () => {
+  const handlePlanDurationLimitReached = useCallback(() => {
     if (didHandlePlanLimitRef.current) return;
     didHandlePlanLimitRef.current = true;
 
-    const message = getPlanDurationLimitMessage();
+    const maxDurationMinutes = Math.floor(maxDurationSeconds / 60);
+    const message = `You reached your ${limits.label} plan session limit of ${maxDurationMinutes} minutes. Upgrade your plan for longer voice sessions.`;
     setLimitError(message);
     toast.error(message);
     router.push("/subscriptions");
-  };
+  }, [limits.label, maxDurationSeconds, router]);
+
+  const handlePlanDurationLimitReachedRef = useLatestRef(
+    handlePlanDurationLimitReached,
+  );
 
   const isActive =
     status === "listening" ||
@@ -362,16 +361,20 @@ const useVapi = (book: IBook) => {
       isStartingRef.current = false;
     }
   };
-  const stop = async () => {
+  const stop = useCallback(async () => {
     isStoppingRef.current = true;
 
     try {
       await getVapi().stop();
     } catch (error) {
       console.error("Error stopping VAPI session:", error);
-      isStoppingRef.current = false;
+    } finally {
+      // onCallEnd should reset this, but ensure cleanup if it never fires
+      setTimeout(() => {
+        isStoppingRef.current = false;
+      }, 5000);
     }
-  };
+  }, []);
   const clearErrors = async () => {
     setLimitError(null);
   };
@@ -388,7 +391,13 @@ const useVapi = (book: IBook) => {
 
     handlePlanDurationLimitReached();
     void stop();
-  }, [duration, isActive, maxDurationSeconds]);
+  }, [
+    duration,
+    isActive,
+    maxDurationSeconds,
+    handlePlanDurationLimitReached,
+    stop,
+  ]);
 
   useEffect(() => {
     let instance: InstanceType<typeof Vapi>;
@@ -458,7 +467,7 @@ const useVapi = (book: IBook) => {
       if (statusMessage?.status === "ended") {
         if (!isStoppingRef.current) {
           if (isDurationLimitEndedReason(statusMessage.endedReason)) {
-            handlePlanDurationLimitReached();
+            handlePlanDurationLimitReachedRef.current();
             return;
           }
 

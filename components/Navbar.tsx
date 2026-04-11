@@ -23,7 +23,7 @@ const Navbar = () => {
   const pathName = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
 
   useEffect(() => {
     if (searchParams.get("signed_out") !== "1") return;
@@ -57,7 +57,7 @@ const Navbar = () => {
         <nav className="w-fit flex gap-7.5 items-center">
           {navItems.map(({ label, href }) => {
             const resolvedHref =
-              label === "Add New" && !user
+              label === "Add New" && isLoaded && !user
                 ? "/sign-in?redirect_url=/books/new&fallback_redirect_url=/books/new"
                 : href;
             const activePath = resolvedHref.split("?")[0];
@@ -71,7 +71,10 @@ const Navbar = () => {
                 className={cn(
                   "nav-link-base",
                   isActive ? "nav-link-active" : "text-black hover:opacity-70",
-                  label === "Add New" && !user && "hidden sm:inline",
+                  label === "Add New" &&
+                    isLoaded &&
+                    !user &&
+                    "hidden sm:inline",
                 )}
               >
                 {label}
