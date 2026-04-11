@@ -1,4 +1,5 @@
 "use client";
+import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 import {
   Show,
@@ -9,7 +10,8 @@ import {
 } from "@clerk/nextjs";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 
 const navItems = [
   { label: "Library", href: "/" },
@@ -19,7 +21,26 @@ const navItems = [
 
 const Navbar = () => {
   const pathName = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useUser();
+
+  useEffect(() => {
+    if (searchParams.get("signed_out") !== "1") return;
+
+    toast.success("Signed out successfully.", {
+      duration: 5000,
+    });
+
+    const nextSearchParams = new URLSearchParams(searchParams.toString());
+    nextSearchParams.delete("signed_out");
+
+    const nextQuery = nextSearchParams.toString();
+    const nextUrl = nextQuery ? `${pathName}?${nextQuery}` : pathName;
+
+    router.replace(nextUrl);
+  }, [pathName, router, searchParams]);
+
   return (
     <header className="w-full fixed z-50 bg-(--bg-primary)">
       <div className="wrapper navbar-height py-4 flex justify-between items-center">

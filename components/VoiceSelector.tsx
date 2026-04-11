@@ -31,7 +31,7 @@ const VoiceSelector = ({
                 <Label
                   key={voiceId}
                   className={cn(
-                    "voice-selector-option",
+                    "voice-selector-option focus-within:ring-2 focus-within:ring-[`#663820`] focus-within:ring-offset-2",
                     isSelected
                       ? "voice-selector-option-selected"
                       : "voice-selector-option-default",
@@ -41,7 +41,7 @@ const VoiceSelector = ({
                   <RadioGroupItem
                     value={voiceId}
                     id={voiceId}
-                    className="sr-only"
+                    className="peer sr-only"
                   />
                   <div className="voice-selector-content">
                     <div className="flex items-center gap-2">
@@ -80,7 +80,7 @@ const VoiceSelector = ({
                 <Label
                   key={voiceId}
                   className={cn(
-                    "voice-selector-option",
+                    "voice-selector-option focus-within:ring-2 focus-within:ring-[`#663820`] focus-within:ring-offset-2",
                     isSelected
                       ? "voice-selector-option-selected"
                       : "voice-selector-option-default",
@@ -90,7 +90,7 @@ const VoiceSelector = ({
                   <RadioGroupItem
                     value={voiceId}
                     id={voiceId}
-                    className="sr-only"
+                    className="peer sr-only"
                   />
                   <div className="voice-selector-content">
                     <div className="flex items-center gap-2">

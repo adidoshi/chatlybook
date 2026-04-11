@@ -1,6 +1,9 @@
 import { Document, Types } from "mongoose";
 import { UploadSchema } from "./lib/zod";
 import { PLANS, PlanType } from "@/lib/subscription-constants";
+import type { LucideIcon } from "lucide-react";
+import type { Control, FieldPath, FieldValues } from "react-hook-form";
+import { z } from "zod";
 
 export interface BookCardProps {
   title: string;

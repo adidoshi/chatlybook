@@ -10,12 +10,14 @@ type BookPageProps = {
 };
 
 const Page = async ({ params }: BookPageProps) => {
+  const { slug } = await params;
   const { userId } = await auth();
   if (!userId) {
-    redirect("/sign-in");
+    const returnTo = encodeURIComponent(`/books/${slug}`);
+    redirect(
+      `/sign-in?redirect_url=${returnTo}&fallback_redirect_url=${returnTo}`,
+    );
   }
-
-  const { slug } = await params;
   const result = await getBookBySlug(slug);
 
   if (!result.success || !result.data) {

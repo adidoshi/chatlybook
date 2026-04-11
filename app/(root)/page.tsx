@@ -31,14 +31,11 @@ export default async function Page({ searchParams }: PageProps) {
   if (isSignedIn) {
     const bookResults = await searchBooks(searchQuery);
     if (!bookResults.success) {
-      const searchError =
-        bookResults.error instanceof Error
+      const searchError = new Error(
+        typeof bookResults.error === "string"
           ? bookResults.error
-          : new Error(
-              typeof bookResults.error === "string"
-                ? bookResults.error
-                : "Failed to search books",
-            );
+          : "Failed to search books",
+      );
 
       throw searchError;
     }
@@ -53,7 +50,11 @@ export default async function Page({ searchParams }: PageProps) {
         <h2 className="section-title">Your Books</h2>
         {isSignedIn && <LibrarySearch initialQuery={searchQuery} />}
       </div>
-      {isSignedIn ? (
+      {!isSignedIn || books?.length === 0 ? (
+        <p className="text-center font-medium text-lg">
+          Books not available - Add new
+        </p>
+      ) : (
         <div className="library-books-grid">
           {books.map((book) => (
             <BookCard
@@ -65,10 +66,6 @@ export default async function Page({ searchParams }: PageProps) {
             />
           ))}
         </div>
-      ) : (
-        <p className="text-center font-medium text-lg">
-          Books not available - Add new
-        </p>
       )}
     </main>
   );

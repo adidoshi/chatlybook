@@ -31,7 +31,7 @@ export const getAllBooks = async () => {
     console.error("Error fetching books:", error);
     return {
       success: false,
-      error,
+      error: error instanceof Error ? error.message : "Failed to fetch books",
     };
   }
 };
@@ -66,7 +66,7 @@ export const searchBooks = async (query: string) => {
     console.error("Error searching books:", error);
     return {
       success: false,
-      error,
+      error: error instanceof Error ? error.message : "Failed to search books",
     };
   }
 };
@@ -240,6 +240,18 @@ export const saveBookSegments = async (
     }
 
     console.log("Saving book segments...");
+
+    if (segments.length === 0) {
+      await Book.findOneAndUpdate(
+        { _id: bookId, clerkId: userId },
+        { totalSegments: 0 },
+      );
+
+      return {
+        success: false,
+        error: "No searchable text could be extracted from this file.",
+      };
+    }
 
     const segmentUpserts = segments.map(
       ({ text, segmentIndex, pageNumber, wordCount }) => ({

@@ -36,7 +36,7 @@ const HeroSection = () => {
             <button
               type="button"
               onClick={handleAddBookClick}
-              className="library-cta-primary mt-4 flex items-center justify-center"
+              className="library-cta-primary mt-4 flex items-center justify-center cursor-pointer"
             >
               <span className="text-3xl font-light">+</span>
               <span className="text-sm md:text-sm text-[#212a3b]">

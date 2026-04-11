@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { handleUpload, HandleUploadBody } from "@vercel/blob/client";
 import { auth } from "@clerk/nextjs/server";
-import { MAX_FILE_SIZE } from "@/lib/constants";
+import {
+  ACCEPTED_IMAGE_TYPES,
+  ACCEPTED_PDF_TYPES,
+  MAX_FILE_SIZE,
+} from "@/lib/constants";
 
 export async function POST(request: Request): Promise<Response> {
   const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
@@ -22,12 +26,7 @@ export async function POST(request: Request): Promise<Response> {
         }
 
         return {
-          allowedContentTypes: [
-            "application/pdf",
-            "image/jpeg",
-            "image/png",
-            "image/webp",
-          ],
+          allowedContentTypes: [...ACCEPTED_PDF_TYPES, ...ACCEPTED_IMAGE_TYPES],
           addRandomSuffix: true,
           maximumSizeInBytes: MAX_FILE_SIZE,
           tokenPayload: JSON.stringify({ userId }),

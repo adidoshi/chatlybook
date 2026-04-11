@@ -8,6 +8,8 @@ import Vapi from "@vapi-ai/web";
 import { getVoice } from "@/lib/utils";
 import { DEFAULT_VOICE, VOICE_SETTINGS } from "@/lib/constants";
 import { useSubscriptionPlan } from "./useSubscriptionPlan";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 export function useLatestRef<T>(value: T) {
   const ref = useRef(value);
@@ -140,6 +142,19 @@ const getCallEndMessage = (endedReason?: string) => {
   return `Call ended: ${endedReason.replace(/-/g, " ")}.`;
 };
 
+const isDurationLimitEndedReason = (endedReason?: string) => {
+  if (!endedReason) return false;
+
+  const normalizedReason = endedReason.toLowerCase();
+
+  return (
+    normalizedReason.includes("max-duration") ||
+    normalizedReason.includes("max duration") ||
+    normalizedReason.includes("duration limit") ||
+    normalizedReason.includes("time limit")
+  );
+};
+
 const extractErrorText = (error: unknown): string | null => {
   if (typeof error === "string") return error;
 
@@ -199,6 +214,7 @@ const getRuntimeErrorMessage = (error: unknown): string | null => {
 
 const useVapi = (book: IBook) => {
   const { limits } = useSubscriptionPlan();
+  const router = useRouter();
 
   const [status, setStatus] = useState<CallStatus>("idle");
   const [messages, setMessages] = useState<Messages[]>([]);
@@ -211,10 +227,25 @@ const useVapi = (book: IBook) => {
   const sessionIdRef = useRef<string | null>(null);
   const isStoppingRef = useRef<boolean>(false);
   const isStartingRef = useRef<boolean>(false);
+  const didHandlePlanLimitRef = useRef<boolean>(false);
 
   const voice = book.persona || DEFAULT_VOICE;
 
   const maxDurationSeconds = limits.maxSessionMinutes * 60;
+
+  const getPlanDurationLimitMessage = () => {
+    return `You reached your ${limits.label} plan session limit of ${limits.maxSessionMinutes} minutes. Upgrade your plan for longer voice sessions.`;
+  };
+
+  const handlePlanDurationLimitReached = () => {
+    if (didHandlePlanLimitRef.current) return;
+    didHandlePlanLimitRef.current = true;
+
+    const message = getPlanDurationLimitMessage();
+    setLimitError(message);
+    toast.error(message);
+    router.push("/subscriptions");
+  };
 
   const isActive =
     status === "listening" ||
@@ -242,6 +273,7 @@ const useVapi = (book: IBook) => {
   const start = async () => {
     if (isStartingRef.current || status !== "idle") return;
     isStartingRef.current = true;
+    didHandlePlanLimitRef.current = false;
     const ASSISTANT_ID = process.env.NEXT_PUBLIC_ASSISTANT_ID;
     setLimitError(null);
     if (!ASSISTANT_ID) {
@@ -259,9 +291,16 @@ const useVapi = (book: IBook) => {
       const result = await startVoiceSession(book._id);
 
       if (!result.success) {
-        setLimitError(
-          result.error || "Unable to start session. Please try again.",
-        );
+        const errorMessage =
+          result.error || "Unable to start session. Please try again.";
+
+        setLimitError(errorMessage);
+
+        if (result.isBillingError) {
+          toast.error(errorMessage);
+          router.push("/subscriptions");
+        }
+
         setStatus("idle");
         return;
       }
@@ -331,6 +370,14 @@ const useVapi = (book: IBook) => {
   };
 
   useEffect(() => {
+    if (!isActive || isStoppingRef.current) return;
+    if (duration < maxDurationSeconds) return;
+
+    handlePlanDurationLimitReached();
+    void stop();
+  }, [duration, isActive, maxDurationSeconds]);
+
+  useEffect(() => {
     let instance: InstanceType<typeof Vapi>;
 
     try {
@@ -397,6 +444,11 @@ const useVapi = (book: IBook) => {
 
       if (statusMessage?.status === "ended") {
         if (!isStoppingRef.current) {
+          if (isDurationLimitEndedReason(statusMessage.endedReason)) {
+            handlePlanDurationLimitReached();
+            return;
+          }
+
           setLimitError(getCallEndMessage(statusMessage.endedReason));
         }
         return;

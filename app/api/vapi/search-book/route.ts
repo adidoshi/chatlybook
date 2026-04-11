@@ -74,12 +74,15 @@ async function processBookSearch(
     return { result: "Missing bookId or query" };
   }
 
-  const resolvedContext =
-    context?.clerkId || context?.ownerId
-      ? context
-      : {
-          clerkId: await resolveBookOwnerId(bookIdStr),
-        };
+  if (!context?.clerkId && !context?.ownerId) {
+    return {
+      success: false,
+      error: "AuthRequired",
+      result: "Authentication required for book search.",
+    };
+  }
+
+  const resolvedContext = context;
 
   // Execute search
   const searchResult = await searchBookSegments(

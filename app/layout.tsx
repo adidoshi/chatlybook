@@ -41,7 +41,7 @@ export default function RootLayout({
       className={`${poppins.variable} ${merriweather.variable} relative font-sans antialiased`}
     >
       <body className="min-h-screen flex flex-col">
-        <ClerkProvider ui={ui}>
+        <ClerkProvider ui={ui} afterSignOutUrl="/?signed_out=1">
           <Navbar />
           <div className="flex-1 flex flex-col">{children}</div>
           <Footer />

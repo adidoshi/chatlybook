@@ -351,7 +351,7 @@
     @apply rounded-2xl;
   }
   .page-title-xl {
-    @apply text-3xl md:text-5xl font-semibold text-black tracking-[-0.02em] leading-[54px] font-serif;
+    @apply text-3xl md:text-5xl font-semibold text-foreground tracking-[-0.02em] leading-[54px] font-serif;
   }
   .section-title {
     @apply text-2xl md:text-[30px] font-semibold text-black leading-[30px] font-serif;
@@ -417,6 +417,14 @@
   }
   .warning-banner-text {
     @apply text-[var(--text-primary)] font-medium;
+  }
+
+  .cn-toast {
+    @apply rounded-xl border;
+
+    border-color: var(--border-subtle);
+
+    box-shadow: var(--shadow-soft-sm);
   }
 
   /* ===========================================
