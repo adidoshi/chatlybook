@@ -1,7 +1,12 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { useAuth } from "@clerk/nextjs";
 
 const HeroSection = () => {
+  const { isSignedIn } = useAuth();
+
   return (
     <section className="wrapper mb-10 md:mb-16">
       <div className="library-hero-card">
@@ -17,20 +22,22 @@ const HeroSection = () => {
               Listen, learn, and discuss your favorite reads.
             </p>
             <Link
-              href="/books/new"
+              href={isSignedIn ? "/books/new" : "/sign-in"}
               className="library-cta-primary mt-4 flex items-center justify-center"
             >
-              <span className="text-3xl font-light mb-1 mr-2">+</span>
-              <span className="text-[#212a3b]">Add new book</span>
+              <span className="text-3xl font-light">+</span>
+              <span className="text-sm md:text-sm text-[#212a3b]">
+                Add new book
+              </span>
             </Link>
           </div>
 
           {/* Center Part - Desktop */}
           <div className="library-hero-illustration-desktop">
             <Image
-              src="/assets/hero-illustration.png"
+              src="/assets/hero-illustration-img.png"
               alt="Vintage books and a globe"
-              width={400}
+              width={600}
               height={400}
               className="object-contain"
             />
@@ -39,10 +46,10 @@ const HeroSection = () => {
           {/* Center Part - Mobile (Hidden on Desktop) */}
           <div className="library-hero-illustration">
             <Image
-              src="/assets/hero-illustration.png"
+              src="/assets/hero-illustration-img.png"
               alt="Vintage books and a globe"
               width={300}
-              height={300}
+              height={200}
               className="object-contain"
             />
           </div>

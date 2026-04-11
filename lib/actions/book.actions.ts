@@ -36,6 +36,41 @@ export const getAllBooks = async () => {
   }
 };
 
+export const searchBooks = async (query: string) => {
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    await connectToDatabase();
+
+    const trimmedQuery = query.trim();
+    const filter = !trimmedQuery
+      ? { clerkId: userId }
+      : {
+          clerkId: userId,
+          $or: [
+            { title: { $regex: escapeRegex(trimmedQuery), $options: "i" } },
+            { author: { $regex: escapeRegex(trimmedQuery), $options: "i" } },
+          ],
+        };
+
+    const books = await Book.find(filter).sort({ createdAt: -1 }).lean();
+
+    return {
+      success: true,
+      data: serializeData(books),
+    };
+  } catch (error) {
+    console.error("Error searching books:", error);
+    return {
+      success: false,
+      error,
+    };
+  }
+};
+
 export const getBookBySlug = async (slug: string) => {
   try {
     const { userId } = await auth();

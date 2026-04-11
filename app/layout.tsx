@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ui } from "@clerk/ui";
-import { Mona_Sans, Poppins } from "next/font/google";
+import { Poppins, Merriweather } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import { Toaster } from "@/components/ui/sonner";
 
 const poppins = Poppins({
@@ -13,16 +14,19 @@ const poppins = Poppins({
   display: "swap",
 });
 
-const monaSans = Mona_Sans({
-  variable: "--font-mona-sans",
+const merriweather = Merriweather({
+  variable: "--font-merriweather",
   subsets: ["latin"],
-  display: "swap",
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
   title: "Chatlybook",
   description:
     "Transform your books into interactive AI conversations. Upload PDFs & chat with your books using voice.",
+  icons: {
+    icon: "/book-favicon.png",
+  },
 };
 
 export default function RootLayout({
@@ -34,12 +38,13 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${poppins.variable} ${monaSans.variable} relative font-sans antialiased`}
+      className={`${poppins.variable} ${merriweather.variable} relative font-sans antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-screen flex flex-col">
         <ClerkProvider ui={ui}>
           <Navbar />
-          {children}
+          <div className="flex-1 flex flex-col">{children}</div>
+          <Footer />
           <Toaster />
         </ClerkProvider>
       </body>
