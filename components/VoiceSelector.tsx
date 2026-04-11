@@ -43,7 +43,7 @@ const VoiceSelector = ({
                     id={voiceId}
                     className="sr-only"
                   />
-                  <div className="flex flex-col gap-1">
+                  <div className="voice-selector-content">
                     <div className="flex items-center gap-2">
                       <div
                         className={cn(
@@ -59,7 +59,7 @@ const VoiceSelector = ({
                         {voice.name}
                       </span>
                     </div>
-                    <p className="text-xs text-[#777] leading-relaxed">
+                    <p className="voice-selector-description">
                       {voice.description}
                     </p>
                   </div>
@@ -92,7 +92,7 @@ const VoiceSelector = ({
                     id={voiceId}
                     className="sr-only"
                   />
-                  <div className="flex flex-col gap-1">
+                  <div className="voice-selector-content">
                     <div className="flex items-center gap-2">
                       <div
                         className={cn(
@@ -108,7 +108,7 @@ const VoiceSelector = ({
                         {voice.name}
                       </span>
                     </div>
-                    <p className="text-xs text-[#777] leading-relaxed">
+                    <p className="voice-selector-description">
                       {voice.description}
                     </p>
                   </div>

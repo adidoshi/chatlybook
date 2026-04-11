@@ -25,26 +25,31 @@ const Navbar = () => {
       <div className="wrapper navbar-height py-4 flex justify-between items-center">
         <Link href="/" className="flex gap-0.5 items-center">
           <Image
-            src="/assets/logo.png"
+            src="/assets/book-icon.png"
             alt="ChatlyBook Logo"
             width={42}
-            height={26}
-            // className="w-20 h-auto"
+            height={42}
           />
           <span className="logo-text">Chatlybook</span>
         </Link>
 
         <nav className="w-fit flex gap-7.5 items-center">
           {navItems.map(({ label, href }) => {
+            const resolvedHref =
+              label === "Add New" && !user
+                ? "/sign-in?redirect_url=/books/new&fallback_redirect_url=/books/new"
+                : href;
             const isActive =
-              pathName === href || (href !== "/" && pathName.startsWith(href));
+              pathName === resolvedHref ||
+              (resolvedHref !== "/" && pathName.startsWith(resolvedHref));
             return (
               <Link
                 key={label}
-                href={href}
+                href={resolvedHref}
                 className={cn(
                   "nav-link-base",
                   isActive ? "nav-link-active" : "text-black hover:opacity-70",
+                  label === "Add New" && !user && "hidden sm:inline",
                 )}
               >
                 {label}
@@ -55,7 +60,7 @@ const Navbar = () => {
           <div className="flex gap-7.5 items-center">
             <Show when="signed-out">
               <div className="flex items-center gap-3">
-                <SignInButton>
+                <SignInButton forceRedirectUrl="/" fallbackRedirectUrl="/">
                   <button className="text-sm font-medium text-(--text-primary) hover:opacity-70 cursor-pointer">
                     Sign in
                   </button>
