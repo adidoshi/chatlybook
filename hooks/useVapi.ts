@@ -222,6 +222,9 @@ const useVapi = (book: IBook) => {
   const [currentUserMessage, setCurrentUserMessage] = useState<string>("");
   const [duration, setDuration] = useState<number>(0);
   const [limitError, setLimitError] = useState<string | null>(null);
+  const [maxDurationSeconds, setMaxDurationSeconds] = useState<number>(
+    limits.maxSessionMinutes * 60,
+  );
 
   const timeRef = useRef<NodeJS.Timeout | null>(null);
   const sessionIdRef = useRef<string | null>(null);
@@ -231,10 +234,10 @@ const useVapi = (book: IBook) => {
 
   const voice = book.persona || DEFAULT_VOICE;
 
-  const maxDurationSeconds = limits.maxSessionMinutes * 60;
-
   const getPlanDurationLimitMessage = () => {
-    return `You reached your ${limits.label} plan session limit of ${limits.maxSessionMinutes} minutes. Upgrade your plan for longer voice sessions.`;
+    const maxDurationMinutes = Math.floor(maxDurationSeconds / 60);
+
+    return `You reached your ${limits.label} plan session limit of ${maxDurationMinutes} minutes. Upgrade your plan for longer voice sessions.`;
   };
 
   const handlePlanDurationLimitReached = () => {
@@ -305,6 +308,10 @@ const useVapi = (book: IBook) => {
         return;
       }
 
+      const authoritativeMaxDurationSeconds =
+        (result.maxDurationMinutes ?? limits.maxSessionMinutes) * 60;
+
+      setMaxDurationSeconds(authoritativeMaxDurationSeconds);
       sessionIdRef.current = result.sessionId || null;
 
       const firstMessage = `Hey, good to meet you. Quick question, before we dive in: have you actually read ${book.title} yet? Or are we starting fresh?`;
@@ -313,7 +320,7 @@ const useVapi = (book: IBook) => {
 
       const call = await getVapi().start(ASSISTANT_ID, {
         firstMessage,
-        maxDurationSeconds,
+        maxDurationSeconds: authoritativeMaxDurationSeconds,
         variableValues: {
           title: book.title,
           author: book.author,
@@ -368,6 +375,12 @@ const useVapi = (book: IBook) => {
   const clearErrors = async () => {
     setLimitError(null);
   };
+
+  useEffect(() => {
+    if (status !== "idle" || sessionIdRef.current) return;
+
+    setMaxDurationSeconds(limits.maxSessionMinutes * 60);
+  }, [limits.maxSessionMinutes, status]);
 
   useEffect(() => {
     if (!isActive || isStoppingRef.current) return;

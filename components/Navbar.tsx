@@ -60,9 +60,10 @@ const Navbar = () => {
               label === "Add New" && !user
                 ? "/sign-in?redirect_url=/books/new&fallback_redirect_url=/books/new"
                 : href;
+            const activePath = resolvedHref.split("?")[0];
             const isActive =
-              pathName === resolvedHref ||
-              (resolvedHref !== "/" && pathName.startsWith(resolvedHref));
+              pathName === activePath ||
+              (activePath !== "/" && pathName.startsWith(activePath));
             return (
               <Link
                 key={label}

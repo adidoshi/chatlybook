@@ -9,7 +9,7 @@ import Image from "next/image";
 const formatDuration = (durationSeconds: number) => {
   const minutes = Math.floor(durationSeconds / 60)
     .toString()
-    .padStart(1, "0");
+    .padStart(2, "0");
   const seconds = (durationSeconds % 60).toString().padStart(2, "0");
 
   return `${minutes}:${seconds}`;

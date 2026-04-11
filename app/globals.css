@@ -421,9 +421,7 @@
 
   .cn-toast {
     @apply rounded-xl border;
-
     border-color: var(--border-subtle);
-
     box-shadow: var(--shadow-soft-sm);
   }
 

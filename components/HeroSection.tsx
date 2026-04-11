@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 
 const HeroSection = () => {
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, isLoaded } = useAuth();
   const router = useRouter();
 
   const handleAddBookClick = () => {
+    if (!isLoaded) return;
     if (isSignedIn) {
       router.push("/books/new");
       return;

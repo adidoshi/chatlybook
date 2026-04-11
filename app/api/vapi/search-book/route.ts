@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { searchBookSegments } from "@/lib/actions/book.actions";
 import { connectToDatabase } from "@/database/mongoose";
 import Book from "@/database/models/book.model";
@@ -7,32 +8,6 @@ type SearchContext = {
   clerkId?: string;
   ownerId?: string;
 };
-
-function extractUserContext(body: Record<string, unknown>): SearchContext {
-  // Only trust server-verified identity context; ignore caller-controlled headers/args/body.
-  const serverVerified =
-    body?.serverVerified && typeof body.serverVerified === "object"
-      ? (body.serverVerified as Record<string, unknown>)
-      : body?.metadata &&
-          typeof body.metadata === "object" &&
-          (body.metadata as Record<string, unknown>).serverVerified &&
-          typeof (body.metadata as Record<string, unknown>).serverVerified ===
-            "object"
-        ? ((body.metadata as Record<string, unknown>).serverVerified as Record<
-            string,
-            unknown
-          >)
-        : undefined;
-
-  const clerkId =
-    (typeof serverVerified?.clerkId === "string" &&
-      serverVerified.clerkId.trim()) ||
-    (typeof serverVerified?.ownerId === "string" &&
-      serverVerified.ownerId.trim()) ||
-    undefined;
-
-  return { clerkId, ownerId: clerkId };
-}
 
 async function resolveBookOwnerId(bookId: string): Promise<string | undefined> {
   try {
@@ -92,7 +67,12 @@ async function processBookSearch(
     resolvedContext,
   );
 
-  if (!searchResult.success && searchResult.error === "AuthRequired") {
+  const searchError =
+    "error" in searchResult && typeof searchResult.error === "string"
+      ? searchResult.error
+      : undefined;
+
+  if (!searchResult.success && searchError === "AuthRequired") {
     return {
       success: false,
       error: "AuthRequired",
@@ -108,7 +88,7 @@ async function processBookSearch(
 
     return {
       success: false,
-      error: searchResult.error || "SearchFailed",
+      error: searchError || "SearchFailed",
       result: message,
     };
   }
@@ -144,6 +124,13 @@ function parseArgs(args: unknown): Record<string, unknown> {
 
 export async function POST(request: Request) {
   try {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json(
+        { results: [{ result: "Authentication required for book search." }] },
+        { status: 401 },
+      );
+    }
     const body = await request.json();
     const requestBody =
       body && typeof body === "object" ? (body as Record<string, unknown>) : {};
@@ -159,7 +146,7 @@ export async function POST(request: Request) {
     if (functionCall) {
       const { name, parameters } = functionCall;
       const parsed = parseArgs(parameters);
-      const userContext = extractUserContext(requestBody);
+      const userContext = { clerkId: userId, ownerId: userId };
 
       if (name === "searchBook") {
         const result = await processBookSearch(
@@ -186,7 +173,7 @@ export async function POST(request: Request) {
       const { id, function: func } = toolCall;
       const name = func?.name;
       const args = parseArgs(func?.arguments);
-      const userContext = extractUserContext(requestBody);
+      const userContext = { clerkId: userId, ownerId: userId };
 
       if (name === "searchBook") {
         const searchResult = await processBookSearch(

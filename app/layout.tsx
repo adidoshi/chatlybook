@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ui } from "@clerk/ui";
+import { Suspense } from "react";
 import { Poppins, Merriweather } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
@@ -42,7 +43,9 @@ export default function RootLayout({
     >
       <body className="min-h-screen flex flex-col">
         <ClerkProvider ui={ui} afterSignOutUrl="/?signed_out=1">
-          <Navbar />
+          <Suspense fallback={null}>
+            <Navbar />
+          </Suspense>
           <div className="flex-1 flex flex-col">{children}</div>
           <Footer />
           <Toaster />

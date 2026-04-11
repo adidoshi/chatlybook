@@ -22,7 +22,9 @@ export async function POST(request: Request): Promise<Response> {
       onBeforeGenerateToken: async () => {
         const { userId } = await auth();
         if (!userId) {
-          throw new Error("Unauthorized: User not authenticated");
+          const err = new Error("Unauthorized");
+          (err as Error & { status?: number }).status = 401;
+          throw err;
         }
 
         return {
@@ -42,8 +44,18 @@ export async function POST(request: Request): Promise<Response> {
     });
     return NextResponse.json(jsonResponse);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    const status = message.includes("Unauthorized") ? 401 : 500;
-    return NextResponse.json({ error: message }, { status });
+    const status =
+      typeof error === "object" &&
+      error !== null &&
+      "status" in error &&
+      typeof (error as { status?: unknown }).status === "number"
+        ? ((error as { status: number }).status ?? 500)
+        : 500;
+
+    console.error("Upload route error:", error);
+    return NextResponse.json(
+      { error: status === 401 ? "Unauthorized" : "Upload failed" },
+      { status },
+    );
   }
 }
