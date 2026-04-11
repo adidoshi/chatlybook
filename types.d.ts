@@ -5,7 +5,7 @@ import { PLANS, PlanType } from "@/lib/subscription-constants";
 export interface BookCardProps {
   title: string;
   author: string;
-  coverURL: string;
+  coverURL?: string;
   slug: string;
 }
 
@@ -81,7 +81,7 @@ export interface CreateBook {
   persona?: string;
   fileURL: string;
   fileBlobKey: string;
-  coverURL: string;
+  coverURL?: string;
   coverBlobKey?: string;
   fileSize: number;
 }

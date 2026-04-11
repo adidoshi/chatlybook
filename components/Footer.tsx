@@ -8,7 +8,7 @@ const contactItems = [
     src: "/assets/github.png",
   },
   {
-    label: "Linkedin",
+    label: "LinkedIn",
     href: "https://www.linkedin.com/in/aditya-doshi08/",
     src: "/assets/linkedin.png",
   },
@@ -49,30 +49,26 @@ const Footer = () => {
               </h3>
               <ul className="mt-4 space-y-3 text-sm text-(--text-secondary)">
                 {contactItems.map((item) => (
-                  <div key={item.label} className="flex items-center gap-2">
+                  <li key={item.label} className="flex items-center gap-2">
                     <Image
                       src={item.src}
                       alt={item.label}
                       width={24}
                       height={24}
                     />
-                    <li>
-                      <Link
-                        href={item.href}
-                        className="transition-opacity hover:opacity-70"
-                        target={
-                          item.href.startsWith("http") ? "_blank" : undefined
-                        }
-                        rel={
-                          item.href.startsWith("http")
-                            ? "noreferrer"
-                            : undefined
-                        }
-                      >
-                        {item.label}
-                      </Link>
-                    </li>
-                  </div>
+                    <Link
+                      href={item.href}
+                      className="transition-opacity hover:opacity-70"
+                      target={
+                        item.href.startsWith("http") ? "_blank" : undefined
+                      }
+                      rel={
+                        item.href.startsWith("http") ? "noreferrer" : undefined
+                      }
+                    >
+                      {item.label}
+                    </Link>
+                  </li>
                 ))}
               </ul>
             </div>

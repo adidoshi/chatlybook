@@ -10,7 +10,7 @@ type BookListItem = {
   _id: string;
   title: string;
   author: string;
-  coverURL: string;
+  coverURL?: string;
   slug: string;
 };
 
@@ -30,9 +30,20 @@ export default async function Page({ searchParams }: PageProps) {
   let books: BookListItem[] = [];
   if (isSignedIn) {
     const bookResults = await searchBooks(searchQuery);
-    books = bookResults.success
-      ? ((bookResults.data ?? []) as BookListItem[])
-      : [];
+    if (!bookResults.success) {
+      const searchError =
+        bookResults.error instanceof Error
+          ? bookResults.error
+          : new Error(
+              typeof bookResults.error === "string"
+                ? bookResults.error
+                : "Failed to search books",
+            );
+
+      throw searchError;
+    }
+
+    books = (bookResults.data ?? []) as BookListItem[];
   }
 
   return (

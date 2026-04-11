@@ -216,6 +216,7 @@
   }
   .form-btn {
     @apply !w-full h-14 rounded-[10px] bg-[#663820] cursor-pointer hover:bg-[#7a4528] text-xl text-white font-bold transition-colors;
+
     font-family: var(--font-poppins), sans-serif;
   }
   .loading-wrapper {
@@ -277,6 +278,7 @@
   /* Button utilities */
   .btn-primary {
     @apply inline-flex items-center justify-center px-6 py-3 bg-[var(--color-brand)] hover:bg-[var(--color-brand-hover)] text-white font-bold rounded-[10px] transition-colors;
+
     font-family: var(--font-poppins), sans-serif;
   }
   .btn-secondary {
@@ -491,6 +493,7 @@
   }
   .vapi-badge-ai-text {
     @apply text-sm font-medium text-[#212a3b];
+
     font-family: var(--font-poppins), sans-serif;
   }
   .vapi-status-indicator {
@@ -519,6 +522,7 @@
   }
   .vapi-status-text {
     @apply text-sm font-medium text-[#212a3b];
+
     font-family: var(--font-poppins), sans-serif;
   }
   .vapi-stat-box {
@@ -529,10 +533,12 @@
   }
   .vapi-stat-label {
     @apply text-lg font-medium text-[#212a3b] mb-3;
+
     font-family: var(--font-poppins), sans-serif;
   }
   .vapi-stat-value-lg {
     @apply text-[30px] font-semibold text-black leading-9;
+
     font-family: var(--font-merriweather), sans-serif;
   }
   .vapi-stat-value-sm {
@@ -565,6 +571,7 @@
   }
   .library-cta-primary {
     @apply inline-flex items-center justify-center gap-2 bg-white text-[var(--text-primary)] px-5 py-3 rounded-[10px] font-bold text-base transition-all w-full lg:w-fit;
+
     font-family: var(--font-poppins), sans-serif;
 
     &:hover {
@@ -574,6 +581,7 @@
   }
   .library-cta-secondary {
     @apply inline-flex items-center gap-2 bg-white text-[var(--text-primary)] px-5 py-3 rounded-[10px] font-bold text-xl transition-all;
+
     font-family: var(--font-poppins), sans-serif;
 
     &:hover {
@@ -702,6 +710,7 @@
   }
   .voice-selector-description {
     @apply text-xs text-[#777] leading-relaxed min-h-10;
+
     font-family: var(--font-merriweather), sans-serif;
   }
 
@@ -736,6 +745,7 @@
   }
   .book-card-title {
     @apply font-bold text-[#212a3b] line-clamp-1 text-base leading-[22px] md:leading-[30px];
+
     font-family: var(--font-poppins), sans-serif;
   }
   .book-card-author {
@@ -1030,24 +1040,3 @@ button[data-variant="unstyled"] *,
   max-width: 1000px;
   margin: 0 auto;
 }
-
-/*!* Match the app's existing design system *!*/
-/*.clerk-pricing-container :deep(.cl-pricing-table) {*/
-/*  font-family: var(--font-poppins), sans-serif;*/
-/*}*/
-
-/*.clerk-pricing-container :deep(.cl-pricing-table-header) {*/
-/*  font-family: var(--font-poppins), sans-serif;*/
-/*}*/
-
-/*.clerk-pricing-container :deep(.cl-pricing-plan-card) {*/
-/*  border: 2px solid var(--border);*/
-/*  border-radius: 12px;*/
-/*  box-shadow: 4px 4px 0px 0px rgba(0, 0, 0, 1);*/
-/*  transition: transform 0.2s ease;*/
-/*}*/
-
-/*.clerk-pricing-container :deep(.cl-pricing-plan-card:hover) {*/
-/*  transform: translate(-2px, -2px);*/
-/*  box-shadow: 6px 6px 0px 0px rgba(0, 0, 0, 1);*/
-/*}*/

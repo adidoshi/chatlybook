@@ -1,11 +1,23 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 
 const HeroSection = () => {
   const { isSignedIn } = useAuth();
+  const router = useRouter();
+
+  const handleAddBookClick = () => {
+    if (isSignedIn) {
+      router.push("/books/new");
+      return;
+    }
+
+    router.push(
+      "/sign-in?redirect_url=/books/new&fallback_redirect_url=/books/new",
+    );
+  };
 
   return (
     <section className="wrapper mb-10 md:mb-16">
@@ -21,15 +33,16 @@ const HeroSection = () => {
               <br className="hidden md:block" />
               Listen, learn, and discuss your favorite reads.
             </p>
-            <Link
-              href={isSignedIn ? "/books/new" : "/sign-in"}
+            <button
+              type="button"
+              onClick={handleAddBookClick}
               className="library-cta-primary mt-4 flex items-center justify-center"
             >
               <span className="text-3xl font-light">+</span>
               <span className="text-sm md:text-sm text-[#212a3b]">
                 Add new book
               </span>
-            </Link>
+            </button>
           </div>
 
           {/* Center Part - Desktop */}

@@ -36,7 +36,9 @@ const Navbar = () => {
         <nav className="w-fit flex gap-7.5 items-center">
           {navItems.map(({ label, href }) => {
             const resolvedHref =
-              label === "Add New" && !user ? "/sign-in" : href;
+              label === "Add New" && !user
+                ? "/sign-in?redirect_url=/books/new&fallback_redirect_url=/books/new"
+                : href;
             const isActive =
               pathName === resolvedHref ||
               (resolvedHref !== "/" && pathName.startsWith(resolvedHref));
@@ -58,7 +60,7 @@ const Navbar = () => {
           <div className="flex gap-7.5 items-center">
             <Show when="signed-out">
               <div className="flex items-center gap-3">
-                <SignInButton>
+                <SignInButton forceRedirectUrl="/" fallbackRedirectUrl="/">
                   <button className="text-sm font-medium text-(--text-primary) hover:opacity-70 cursor-pointer">
                     Sign in
                   </button>
