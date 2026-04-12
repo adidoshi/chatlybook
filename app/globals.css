@@ -339,6 +339,8 @@
   .subscriptions-pricing-shell {
     @apply w-full rounded-3xl p-2 sm:p-4;
 
+    min-height: 1080px;
+
     background: linear-gradient(
       145deg,
       color-mix(in srgb, var(--bg-tertiary) 88%, #fff 12%) 0%,
@@ -349,6 +351,11 @@
   }
   .subscriptions-pricing-shell > * {
     @apply rounded-2xl;
+  }
+  @media (min-width: 768px) {
+    .subscriptions-pricing-shell {
+      min-height: 420px;
+    }
   }
   .page-title-xl {
     @apply text-3xl md:text-5xl font-semibold text-foreground tracking-[-0.02em] leading-[54px] font-serif;
