@@ -20,12 +20,15 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
     typeof fallbackParam === "string" && isSafeRedirect(fallbackParam)
       ? fallbackParam
       : "/";
+  const crossRedirectUrl = redirectUrl ?? fallbackRedirectUrl;
 
   return (
     <main className="auth-wrapper">
       <SignIn
         forceRedirectUrl={redirectUrl}
         fallbackRedirectUrl={fallbackRedirectUrl}
+        signUpForceRedirectUrl={crossRedirectUrl}
+        signUpFallbackRedirectUrl={crossRedirectUrl}
       />
     </main>
   );

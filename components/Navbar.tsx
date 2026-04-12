@@ -1,17 +1,14 @@
 "use client";
 import { useEffect } from "react";
 import { cn } from "@/lib/utils";
-import {
-  Show,
-  SignInButton,
-  SignUpButton,
-  UserButton,
-  useUser,
-} from "@clerk/nextjs";
+import { Show, UserButton, useUser } from "@clerk/nextjs";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+
+const isSafeInternalPath = (value: string) =>
+  value.startsWith("/") && !value.startsWith("//");
 
 const navItems = [
   { label: "Library", href: "/" },
@@ -24,6 +21,29 @@ const Navbar = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoaded } = useUser();
+
+  const isAuthPath = pathName === "/sign-in" || pathName === "/sign-up";
+  const currentQuery = searchParams.toString();
+  const currentPathWithQuery = currentQuery
+    ? `${pathName}?${currentQuery}`
+    : pathName;
+  const redirectParam = searchParams.get("redirect_url");
+  const fallbackParam = searchParams.get("fallback_redirect_url");
+  const authIntentPath =
+    isAuthPath && redirectParam && isSafeInternalPath(redirectParam)
+      ? redirectParam
+      : isAuthPath && fallbackParam && isSafeInternalPath(fallbackParam)
+        ? fallbackParam
+        : isAuthPath
+          ? "/"
+          : currentPathWithQuery;
+
+  const signInHref = `/sign-in?redirect_url=${encodeURIComponent(
+    authIntentPath,
+  )}&fallback_redirect_url=${encodeURIComponent(authIntentPath)}`;
+  const signUpHref = `/sign-up?redirect_url=${encodeURIComponent(
+    authIntentPath,
+  )}&fallback_redirect_url=${encodeURIComponent(authIntentPath)}`;
 
   useEffect(() => {
     if (searchParams.get("signed_out") !== "1") return;
@@ -85,16 +105,18 @@ const Navbar = () => {
           <div className="flex gap-7.5 items-center">
             <Show when="signed-out">
               <div className="flex items-center gap-3">
-                <SignInButton forceRedirectUrl="/" fallbackRedirectUrl="/">
-                  <button className="text-sm font-medium text-(--text-primary) hover:opacity-70 cursor-pointer">
-                    Sign in
-                  </button>
-                </SignInButton>
-                <SignUpButton>
-                  <button className="px-3 py-1.5 rounded-md bg-(--accent-warm) text-white text-sm font-medium hover:bg-(--accent-warm-hover) transition-colors cursor-pointer">
-                    Sign up
-                  </button>
-                </SignUpButton>
+                <Link
+                  href={signInHref}
+                  className="text-sm font-medium text-(--text-primary) hover:opacity-70"
+                >
+                  Sign in
+                </Link>
+                <Link
+                  href={signUpHref}
+                  className="px-3 py-1.5 rounded-md bg-(--accent-warm) text-white text-sm font-medium hover:bg-(--accent-warm-hover) transition-colors"
+                >
+                  Sign up
+                </Link>
               </div>
             </Show>
 
