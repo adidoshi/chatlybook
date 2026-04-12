@@ -22,7 +22,11 @@ const Navbar = () => {
   const searchParams = useSearchParams();
   const { user, isLoaded } = useUser();
 
-  const isAuthPath = pathName === "/sign-in" || pathName === "/sign-up";
+  const isAuthPath =
+    pathName === "/sign-in" ||
+    pathName.startsWith("/sign-in/") ||
+    pathName === "/sign-up" ||
+    pathName.startsWith("/sign-up/");
   const currentQuery = searchParams.toString();
   const currentPathWithQuery = currentQuery
     ? `${pathName}?${currentQuery}`
