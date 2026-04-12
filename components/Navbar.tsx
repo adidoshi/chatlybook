@@ -38,12 +38,12 @@ const Navbar = () => {
           ? "/"
           : currentPathWithQuery;
 
-  const signInHref = `/sign-in?redirect_url=${encodeURIComponent(
-    authIntentPath,
-  )}&fallback_redirect_url=${encodeURIComponent(authIntentPath)}`;
-  const signUpHref = `/sign-up?redirect_url=${encodeURIComponent(
-    authIntentPath,
-  )}&fallback_redirect_url=${encodeURIComponent(authIntentPath)}`;
+  const authQuery = new URLSearchParams({
+    redirect_url: authIntentPath,
+    fallback_redirect_url: authIntentPath,
+  }).toString();
+  const signInHref = `/sign-in?${authQuery}`;
+  const signUpHref = `/sign-up?${authQuery}`;
 
   useEffect(() => {
     if (searchParams.get("signed_out") !== "1") return;
