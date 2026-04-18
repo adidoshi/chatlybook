@@ -95,7 +95,7 @@ npm run build
 
 ![Voice pages](./public/assets/screen_3.png)
 
-> Start voice conversation & session live voice to text display page
+> Start voice conversation & session live voice-to-text display page
 
 ![Subscriptions](./public/assets/screen_4.png)
 

@@ -77,3 +77,7 @@ There is no dedicated automated test suite configured yet.
 - The app is multi-tenant by user ownership, not by shared libraries or organizations.
 - Voice conversations depend on the Vapi assistant calling the `searchBook` tool with `bookId` and `query`.
 - If a change affects upload, retrieval, or Vapi orchestration, update both this file and the README flow section.
+
+## Agent Types and Roles
+
+Implementation agent, review agent, docs agent, release agent
