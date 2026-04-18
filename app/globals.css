@@ -851,42 +851,6 @@
   flex: 1 !important;
 }
 
-/* Clerk Auth Input Fields with Soft Shadow */
-.cl-formFieldInput__identifier,
-.cl-formFieldInput__password,
-.cl-formFieldInput__emailAddress,
-.cl-formFieldInput__firstName,
-.cl-formFieldInput__lastName,
-.cl-formFieldInput {
-  position: relative !important;
-  z-index: 10 !important;
-  border: 1px solid var(--border-subtle) !important;
-  background-color: white !important;
-  box-shadow: var(--shadow-soft-sm) !important;
-  border-radius: 0.75rem !important;
-}
-
-.cl-formFieldInput:focus {
-  border-color: #212a3b !important;
-  box-shadow:
-    var(--shadow-soft),
-    0 0 0 2px rgba(33, 42, 59, 0.1) !important;
-}
-
-/* Clerk Auth Social Buttons with Soft Shadow */
-.cl-socialButtonsBlockButton,
-.cl-socialButtonsBlockButton__google,
-.cl-socialButtonsBlockButton__facebook {
-  box-shadow: var(--shadow-soft-sm) !important;
-  border-radius: 0.75rem !important;
-  border: 1px solid var(--border-subtle) !important;
-}
-
-.cl-socialButtonsBlockButton:hover {
-  box-shadow: var(--shadow-soft) !important;
-  background-color: var(--bg-secondary) !important;
-}
-
 /* Pricing cards container */
 .clerk-pricing-table-wrapper {
   padding: 0.5rem;

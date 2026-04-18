@@ -34,7 +34,7 @@ const Transcript = ({
           <Mic className="size-12 text-[#212a3b]" />
           <p className="transcript-empty-text mt-4">No conversation yet</p>
           <p className="transcript-empty-hint">
-            Click the mic button above to start talking
+            Click the mic button above to start talking - say hi
           </p>
         </div>
       </section>
