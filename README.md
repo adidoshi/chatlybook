@@ -25,9 +25,10 @@ Step by step:
 5. `saveBookSegments` bulk-upserts segment rows into the `BookSegment` collection and updates `totalSegments` on the parent book.
 6. When the user opens the book page and starts a conversation, `hooks/useVapi.ts` starts a tracked voice session and passes `bookId`, `title`, and `author` into the Vapi assistant call.
 7. During the call, Vapi invokes the `searchBook` tool, which lands in `app/api/vapi/search-book/route.ts`.
-8. The route calls `searchBookSegments`, which first tries MongoDB text search on the selected book for the authenticated user.
-9. If text search yields nothing, the app escapes each keyword and falls back to a case-insensitive regex query across stored segment content.
-10. The matched segments are concatenated into a single context string and sent back to Vapi, which uses that text to answer the user during the voice session.
+8. The route authorizes either the signed-in browser session or a trusted Vapi shared secret, then resolves the correct book owner before searching segments.
+9. `searchBookSegments` first tries MongoDB text search on the selected book for that scoped owner.
+10. If text search yields nothing, the app escapes each keyword and falls back to a case-insensitive regex query across stored segment content.
+11. The matched segments are concatenated into a single context string and sent back to Vapi, which uses that text to answer the user during the voice session.
 
 ## Tech Stack Used
 
@@ -63,6 +64,7 @@ MONGODB_URI=
 BLOB_READ_WRITE_TOKEN=
 NEXT_PUBLIC_VAPI_API_KEY=
 NEXT_PUBLIC_ASSISTANT_ID=
+VAPI_TOOL_SECRET=
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
 CLERK_SECRET_KEY=
 ```
