@@ -85,6 +85,10 @@ npm run lint
 npm run build
 ```
 
+### Watch app demo video
+
+[![Watch Demo](./public/assets/desktop-banner.png)](https://www.loom.com/share/0510447ab38a48c6a483a394592a324f)
+
 ## Screenshots:
 
 ![Auth & add new screens](./public/assets/screen_1.png)
