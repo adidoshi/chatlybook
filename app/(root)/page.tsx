@@ -78,7 +78,7 @@ export default async function Page({ searchParams }: PageProps) {
         <p className="text-center font-medium text-lg">
           Books not available - Add new
         </p>
-      ) : books.length <= 1 && !searchQuery ? (
+      ) : books.length === 0 && !searchQuery ? (
         <section className="mx-auto mt-8 max-w-2xl rounded-3xl border border-black/10 bg-white/80 p-6 shadow-sm">
           <p className="text-center text-lg font-medium text-slate-900">
             Download sample book PDF&apos;s from here to test out the app.
