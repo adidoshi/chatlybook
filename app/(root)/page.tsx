@@ -3,7 +3,6 @@ import HeroSection from "@/components/HeroSection";
 import LibrarySearch from "@/components/LibrarySearch";
 import { searchBooks } from "@/lib/actions/book.actions";
 import { auth } from "@clerk/nextjs/server";
-import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -89,7 +88,7 @@ export default async function Page({ searchParams }: PageProps) {
           <ul className="mt-6 space-y-3">
             {sampleBooks.map((book) => (
               <li key={book.href}>
-                <Link
+                <a
                   href={book.href}
                   download
                   className="flex items-center justify-between rounded-2xl border border-black/10 px-4 py-3 text-sm font-medium text-slate-900 transition hover:border-black/20 hover:bg-slate-50"
@@ -98,7 +97,7 @@ export default async function Page({ searchParams }: PageProps) {
                   <span className="text-xs uppercase tracking-[0.2em] text-slate-500">
                     Download
                   </span>
-                </Link>
+                </a>
               </li>
             ))}
           </ul>

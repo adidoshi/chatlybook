@@ -30,6 +30,10 @@ Step by step:
 10. If text search yields nothing, the app escapes each keyword and falls back to a case-insensitive regex query across stored segment content.
 11. The matched segments are concatenated into a single context string and sent back to Vapi, which uses that text to answer the user during the voice session.
 
+### Watch app demo video
+
+[![Watch Demo](./public/assets/desktop-banner.png)](https://www.loom.com/share/0510447ab38a48c6a483a394592a324f)
+
 ## Tech Stack Used
 
 - **Next.js 16 App Router**: page routing, route handlers, server rendering, and server actions.
