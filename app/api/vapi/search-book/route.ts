@@ -9,6 +9,30 @@ type SearchContext = {
   ownerId?: string;
 };
 
+const getToolRequestSecret = () =>
+  process.env.VAPI_TOOL_SECRET?.trim() ||
+  process.env.VAPI_WEBHOOK_SECRET?.trim();
+
+const hasValidToolRequestSecret = (request: Request) => {
+  const expectedSecret = getToolRequestSecret();
+
+  if (!expectedSecret) {
+    return false;
+  }
+
+  const authorizationHeader = request.headers.get("authorization");
+  const bearerSecret = authorizationHeader
+    ?.match(/^Bearer\s+(.+)$/i)?.[1]
+    ?.trim();
+
+  const providedSecret =
+    request.headers.get("x-vapi-secret")?.trim() ||
+    request.headers.get("x-tool-secret")?.trim() ||
+    bearerSecret;
+
+  return providedSecret === expectedSecret;
+};
+
 async function resolveBookOwnerId(bookId: string): Promise<string | undefined> {
   try {
     await connectToDatabase();
@@ -49,15 +73,21 @@ async function processBookSearch(
     return { result: "Missing bookId or query" };
   }
 
-  if (!context?.clerkId && !context?.ownerId) {
-    return {
-      success: false,
-      error: "AuthRequired",
-      result: "Authentication required for book search.",
-    };
-  }
+  let resolvedContext = context;
 
-  const resolvedContext = context;
+  if (!resolvedContext?.clerkId && !resolvedContext?.ownerId) {
+    const ownerId = await resolveBookOwnerId(bookIdStr);
+
+    if (!ownerId) {
+      return {
+        success: false,
+        error: "AuthRequired",
+        result: "Authentication required for book search.",
+      };
+    }
+
+    resolvedContext = { ownerId };
+  }
 
   // Execute search
   const searchResult = await searchBookSegments(
@@ -125,15 +155,15 @@ function parseArgs(args: unknown): Record<string, unknown> {
 export async function POST(request: Request) {
   try {
     const { userId } = await auth();
-    if (!userId) {
+    const isTrustedToolRequest = hasValidToolRequestSecret(request);
+    const body = await request.json();
+
+    if (!userId && !isTrustedToolRequest) {
       return NextResponse.json(
         { results: [{ result: "Authentication required for book search." }] },
         { status: 401 },
       );
     }
-    const body = await request.json();
-    const requestBody =
-      body && typeof body === "object" ? (body as Record<string, unknown>) : {};
 
     console.log("Vapi search-book request:", JSON.stringify(body, null, 2));
 
@@ -146,7 +176,9 @@ export async function POST(request: Request) {
     if (functionCall) {
       const { name, parameters } = functionCall;
       const parsed = parseArgs(parameters);
-      const userContext = { clerkId: userId, ownerId: userId };
+      const userContext = userId
+        ? { clerkId: userId, ownerId: userId }
+        : undefined;
 
       if (name === "searchBook") {
         const result = await processBookSearch(
@@ -173,7 +205,9 @@ export async function POST(request: Request) {
       const { id, function: func } = toolCall;
       const name = func?.name;
       const args = parseArgs(func?.arguments);
-      const userContext = { clerkId: userId, ownerId: userId };
+      const userContext = userId
+        ? { clerkId: userId, ownerId: userId }
+        : undefined;
 
       if (name === "searchBook") {
         const searchResult = await processBookSearch(

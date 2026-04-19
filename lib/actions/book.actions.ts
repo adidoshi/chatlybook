@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import { connectToDatabase } from "@/database/mongoose";
 import { CreateBook, TextSegment } from "@/types";
 import { escapeRegex, generateSlug, serializeData } from "../utils";
-import Book from "@/database/models/book.model";
+import Book, { ensureBookIndexes } from "@/database/models/book.model";
 import BookSegment from "@/database/models/book-segment.model";
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
@@ -108,6 +108,7 @@ export const checkBookExists = async (title: string) => {
     }
 
     await connectToDatabase();
+    await ensureBookIndexes();
 
     const slug = generateSlug(title);
 
@@ -142,6 +143,7 @@ export const createBook = async (data: CreateBook) => {
 
   try {
     await connectToDatabase();
+    await ensureBookIndexes();
 
     const existingBook = await Book.findOne({ slug, clerkId: userId }).lean();
     if (existingBook) {
@@ -381,11 +383,16 @@ export const searchBookSegments = async (
   bookId: string,
   query: string,
   limit: number = 5,
-  _options?: { clerkId?: string; ownerId?: string },
+  options?: { clerkId?: string; ownerId?: string },
 ) => {
   try {
-    const { userId } = await auth();
-    const resolvedClerkId = userId ?? undefined;
+    const providedClerkId = [options?.clerkId, options?.ownerId].find(
+      (value): value is string =>
+        typeof value === "string" && value.trim().length > 0,
+    );
+
+    const resolvedClerkId =
+      providedClerkId ?? (await auth()).userId ?? undefined;
 
     if (!resolvedClerkId) {
       return { success: false, error: "AuthRequired", data: [] };

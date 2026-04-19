@@ -26,7 +26,7 @@ Chatlybook is a Next.js App Router application that turns uploaded PDFs into pri
 - `lib/utils.ts`: PDF parsing, text segmentation helpers, regex escaping.
 - `lib/actions/book.actions.ts`: book CRUD, segment persistence, segment retrieval with MongoDB text search and regex fallback.
 - `app/api/upload/route.ts`: authenticated Vercel Blob upload token generation.
-- `app/api/vapi/search-book/route.ts`: authenticated tool endpoint used by Vapi to retrieve context.
+- `app/api/vapi/search-book/route.ts`: Clerk-authenticated or shared-secret-authorized tool endpoint used by Vapi to retrieve context.
 - `hooks/useVapi.ts`: Vapi session lifecycle, transcript handling, plan-limit enforcement.
 - `lib/actions/session.actions.ts`: voice session persistence and billing-period limit checks.
 - `database/models/*.ts`: `Book`, `BookSegment`, and `VoiceSession` schemas.
@@ -41,6 +41,7 @@ Chatlybook is a Next.js App Router application that turns uploaded PDFs into pri
 
 ## Code Style Guidelines
 
+- Default styling is included in index.css, use that.
 - Keep changes minimal and local to the behavior being modified.
 - Prefer server components by default in `app/`; add `"use client"` only for interactive UI or browser-only APIs.
 - Keep mutations and data access in server actions or route handlers, not in presentation components.
@@ -64,7 +65,7 @@ There is no dedicated automated test suite configured yet.
 
 - Treat `MONGODB_URI`, `BLOB_READ_WRITE_TOKEN`, Clerk secrets, and Vapi configuration as secrets; never hardcode or log them.
 - All book, segment, and voice-session access must remain scoped to the authenticated Clerk user.
-- Preserve auth checks in server actions and API routes; do not trust client-provided ownership fields.
+- Preserve auth checks in server actions and API routes; do not trust client-provided ownership fields. Vapi tool requests must use a shared secret and resolve ownership server-side.
 - `escapeRegex` exists to prevent unsafe regex construction from user queries. Reuse it for any regex-based search paths.
 - Blob uploads must stay behind the authenticated token-generation route and continue enforcing file type and size limits.
 - Do not expose raw database internals or cross-user segment data in Vapi responses.

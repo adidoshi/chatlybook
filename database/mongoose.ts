@@ -7,15 +7,13 @@ if (!MONGODB_URI) {
 }
 
 declare global {
-  // allow global `var` declarations
-  // eslint-disable-next-line no-var, vars-on-top
   var mongooseCache: {
     conn: typeof mongoose | null;
     promise: Promise<typeof mongoose> | null;
   };
 }
 
-let cached =
+const cached =
   global.mongooseCache ||
   (global.mongooseCache = { conn: null, promise: null });
 
